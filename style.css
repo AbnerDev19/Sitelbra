@@ -1,0 +1,238 @@
+:root {
+    --bg-color: #f4f6f8;
+    --card-bg: #ffffff;
+    --primary-green: #2e7d32; /* Verde Corporativo */
+    --primary-green-hover: #1b5e20;
+    --text-dark: #1a1a1a;
+    --text-gray: #5f6368;
+    --border-color: #e0e0e0;
+    --shadow-sm: 0 2px 5px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --radius: 8px;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-dark);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+}
+
+.main-container {
+    width: 100%;
+    max-width: 1100px;
+}
+
+/* Header */
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--text-dark);
+}
+
+.highlight {
+    color: var(--primary-green);
+}
+
+.subtitle {
+    color: var(--text-gray);
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+/* Grid Layout */
+.grid-layout {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 25px;
+}
+
+@media (max-width: 800px) {
+    .grid-layout { grid-template-columns: 1fr; }
+}
+
+/* Cards */
+.card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 25px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+    height: fit-content;
+}
+
+.card-header h2 {
+    font-size: 1.1rem;
+    color: var(--primary-green);
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    font-weight: 700;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+}
+
+/* Forms */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-gray);
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+select, input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background-color: #fff;
+    color: var(--text-dark);
+    transition: 0.2s;
+}
+
+select:focus, input:focus {
+    outline: none;
+    border-color: var(--primary-green);
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
+}
+
+.divider {
+    height: 1px;
+    background: #eee;
+    margin: 20px 0;
+}
+
+/* Checkboxes */
+h3 {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    margin-bottom: 10px;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: 0.2s;
+}
+
+.checkbox-item:hover {
+    background: #f0fdf4;
+    border-color: var(--primary-green);
+}
+
+.checkbox-item input {
+    width: auto;
+    margin-right: 10px;
+    accent-color: var(--primary-green);
+}
+
+.rural-box {
+    background: #f0fdf4;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-green);
+    margin-top: 15px;
+}
+
+/* Pricing Display */
+.pricing-display {
+    background: #f8f9fa;
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.price-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.price-item.secondary { color: var(--text-gray); }
+.price-item.primary strong { color: var(--text-dark); }
+.price-item.total { 
+    font-size: 1.2rem; 
+    margin-top: 10px;
+    align-items: center;
+}
+
+.price-item.total strong {
+    color: var(--primary-green);
+    font-size: 1.4rem;
+}
+
+.divider-dashed {
+    border-bottom: 1px dashed #ccc;
+    margin: 15px 0;
+}
+
+/* Email */
+textarea {
+    width: 100%;
+    height: 200px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    background: #fff;
+    resize: none;
+    color: #444;
+}
+
+.btn-copy {
+    width: 100%;
+    background-color: var(--primary-green);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: 0.2s;
+}
+
+.btn-copy:hover {
+    background-color: var(--primary-green-hover);
+    box-shadow: var(--shadow-sm);
+}
+
+.hidden { display: none; }
+.fade-in { animation: fadeIn 0.3s; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sitelbra Wholesale | Calculadora</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="main-container">
+        <header class="header">
+            <div class="logo">SITELBRA <span class="highlight">WHOLESALE</span></div>
+            <p class="subtitle">Sistema de Cotação de Projetos Especiais</p>
+        </header>
+
+        <div class="grid-layout">
+            <div class="card input-section">
+                <div class="card-header">
+                    <h2>Configuração do Link</h2>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Operadora</label>
+                        <select id="operadora" onchange="updateForm()">
+                            <option value="oi">Oi</option>
+                            <option value="claro">Claro</option>
+                            <option value="cirion">Cirion</option>
+                            <option value="geral">Vivo / Geral (LPU Sitelbra)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Produto</label>
+                        <select id="produto" onchange="updateForm()">
+                            <option value="L2">L2 / MPLS / VPN</option>
+                            <option value="IP">IP Dedicado</option>
+                            <option value="BDL">Banda Larga</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Estado (UF)</label>
+                        <select id="uf" onchange="calculate()">
+                            </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Velocidade</label>
+                        <select id="velocidade" onchange="calculate()">
+                            <option value="4">4 Mbps</option>
+                            <option value="5">5 Mbps</option>
+                            <option value="10">10 Mbps</option>
+                            <option value="20">20 Mbps</option>
+                            <option value="50">50 Mbps</option>
+                            <option value="100">100 Mbps</option>
+                            <option value="200">200 Mbps</option>
+                            <option value="300">300 Mbps</option>
+                            <option value="500">500 Mbps</option>
+                            <option value="1000">1 Gbps</option>
+                            <option value="special">Outra (Digitar Base)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="manualPriceGroup" class="form-group hidden fade-in">
+                    <label>Preço Base LPU (S/ Impostos) - R$</label>
+                    <input type="number" id="manualBasePrice" placeholder="0,00" oninput="calculate()">
+                </div>
+
+                <div class="divider"></div>
+
+                <h3>Fatores de Projeto (Playbook)</h3>
+                <div class="checkbox-grid">
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="checkShopping" onchange="calculate()"> 
+                        <span>Shopping (2x)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="checkIndustria" onchange="calculate()"> 
+                        <span>Indústria (1.4x)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="checkAeroporto" onchange="calculate()"> 
+                        <span>Aeroporto (3x)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="checkDatacenter" onchange="calculate()"> 
+                        <span>Datacenter (+R$1200)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="checkCidadePequena" onchange="calculate()"> 
+                        <span>Cidade < 30k hab (1.4x)</span>
+                    </label>
+                    <label class="checkbox-item">
+                        <input type="checkbox" id="checkRural" onchange="toggleRural()"> 
+                        <span>Zona Rural</span>
+                    </label>
+                </div>
+
+                <div id="ruralInput" class="form-group hidden fade-in rural-box">
+                    <label>Distância da Rede (Metros)</label>
+                    <input type="number" id="distanciaRural" placeholder="Ex: 1500" oninput="calculate()">
+                    <small>Cálculo: (Metros * 3,65) + 500</small>
+                </div>
+            </div>
+
+            <div class="card output-section">
+                <div class="card-header">
+                    <h2>Valores Calculados</h2>
+                </div>
+                
+                <div class="pricing-display">
+                    <div class="price-item secondary">
+                        <span>Instalação (S/ Impostos)</span>
+                        <strong id="dispInstS">R$ 0,00</strong>
+                    </div>
+                    <div class="price-item primary">
+                        <span>Instalação (C/ Impostos)</span>
+                        <strong id="dispInstC">R$ 0,00</strong>
+                    </div>
+                    
+                    <div class="divider-dashed"></div>
+                    
+                    <div class="price-item secondary">
+                        <span>Mensal (S/ Impostos)</span>
+                        <strong id="dispMensS">R$ 0,00</strong>
+                    </div>
+                    <div class="price-item total">
+                        <span>Mensal (C/ Impostos)</span>
+                        <strong id="dispMensC">R$ 0,00</strong>
+                    </div>
+                </div>
+
+                <div class="email-section">
+                    <h3>Modelo de E-mail</h3>
+                    <textarea id="emailOutput" readonly></textarea>
+                    <button class="btn-copy" onclick="copyToClipboard()">Copiar Texto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
