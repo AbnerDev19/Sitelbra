@@ -1,148 +1,150 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sitelbra Wholesale | Calculadora</title>
+    <title>Sitelbra Wholesale | Calculadora Pro</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
 </head>
+
 <body>
 
-    <div class="main-container">
-        <header class="header">
-            <div class="logo">SITELBRA <span class="highlight">WHOLESALE</span></div>
-            <p class="subtitle">Sistema de Cotação de Projetos Especiais</p>
-        </header>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo-icon">S</div>
+                <span>Sitelbra Wholesale</span>
+            </div>
 
-        <div class="grid-layout">
-            <div class="card input-section">
-                <div class="card-header">
-                    <h2>Configuração do Link</h2>
+            <div class="scroll-content">
+                <div class="section-title">PARÂMETROS DO LINK</div>
+
+                <div class="form-group">
+                    <label>Operadora</label>
+                    <div class="select-wrapper">
+                        <select id="selOperadora">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>Operadora</label>
-                        <select id="operadora" onchange="updateForm()">
-                            <option value="oi">Oi</option>
-                            <option value="claro">Claro</option>
-                            <option value="cirion">Cirion</option>
-                            <option value="geral">Vivo / Geral (LPU Sitelbra)</option>
-                        </select>
-                    </div>
                     <div class="form-group">
                         <label>Produto</label>
-                        <select id="produto" onchange="updateForm()">
-                            <option value="L2">L2 / MPLS / VPN</option>
-                            <option value="IP">IP Dedicado</option>
-                            <option value="BDL">Banda Larga</option>
-                        </select>
+                        <div class="select-wrapper">
+                            <select id="selProduto">
+                                <option value="">...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Prazo</label>
+                        <div class="select-wrapper">
+                            <select id="selPrazo">
+            <option value="12">12 Meses</option>
+            <option value="24">24 Meses</option>
+            <option value="36" selected>36 Meses</option>
+            <option value="48">48 Meses</option> <option value="60">60 Meses</option> </select>
+                        </div>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Estado (UF)</label>
-                        <select id="uf" onchange="calculate()">
+                        <label>UF</label>
+                        <div class="select-wrapper">
+                            <select id="selUF">
+                                <option value="">...</option>
                             </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Velocidade</label>
-                        <select id="velocidade" onchange="calculate()">
-                            <option value="4">4 Mbps</option>
-                            <option value="5">5 Mbps</option>
-                            <option value="10">10 Mbps</option>
-                            <option value="20">20 Mbps</option>
-                            <option value="50">50 Mbps</option>
-                            <option value="100">100 Mbps</option>
-                            <option value="200">200 Mbps</option>
-                            <option value="300">300 Mbps</option>
-                            <option value="500">500 Mbps</option>
-                            <option value="1000">1 Gbps</option>
-                            <option value="special">Outra (Digitar Base)</option>
-                        </select>
+                        <div class="select-wrapper">
+                            <select id="selVelocidade" disabled>
+                                <option value="">Selecione UF...</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-
-                <div id="manualPriceGroup" class="form-group hidden fade-in">
-                    <label>Preço Base LPU (S/ Impostos) - R$</label>
-                    <input type="number" id="manualBasePrice" placeholder="0,00" oninput="calculate()">
                 </div>
 
                 <div class="divider"></div>
 
-                <h3>Fatores de Projeto (Playbook)</h3>
-                <div class="checkbox-grid">
-                    <label class="checkbox-item">
-                        <input type="checkbox" id="checkShopping" onchange="calculate()"> 
-                        <span>Shopping (2x)</span>
+                <div class="section-title">ADICIONAIS E TIPO DE LOCAL</div>
+
+                <div class="toggles-list">
+                    <label class="toggle-item">
+                        <input type="checkbox" id="checkShopping">
+                        <span class="toggle-label">Shopping Center (x2)</span>
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" id="checkIndustria" onchange="calculate()"> 
-                        <span>Indústria (1.4x)</span>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="checkAeroporto">
+                        <span class="toggle-label">Aeroporto (x3)</span>
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" id="checkAeroporto" onchange="calculate()"> 
-                        <span>Aeroporto (3x)</span>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="checkIndustria">
+                        <span class="toggle-label">Indústria/Galpão (x1.4)</span>
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" id="checkDatacenter" onchange="calculate()"> 
-                        <span>Datacenter (+R$1200)</span>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="checkDatacenter">
+                        <span class="toggle-label">Datacenter (+ Cross)</span>
                     </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" id="checkCidadePequena" onchange="calculate()"> 
-                        <span>Cidade < 30k hab (1.4x)</span>
-                    </label>
-                    <label class="checkbox-item">
-                        <input type="checkbox" id="checkRural" onchange="toggleRural()"> 
-                        <span>Zona Rural</span>
+                    <label class="toggle-item">
+                        <input type="checkbox" id="checkRural">
+                        <span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra Dedicada</span>
                     </label>
                 </div>
 
-                <div id="ruralInput" class="form-group hidden fade-in rural-box">
-                    <label>Distância da Rede (Metros)</label>
-                    <input type="number" id="distanciaRural" placeholder="Ex: 1500" oninput="calculate()">
-                    <small>Cálculo: (Metros * 3,65) + 500</small>
+                <div id="ruralOptions" class="hidden" style="margin-top:15px; background:var(--accent-light); padding:10px; border-radius:8px;">
+                    <label class="input-label" style="font-size:0.8rem;">Metros de construção de rede:</label>
+                    <input type="number" id="inputDistancia" placeholder="Ex: 500" class="input-text">
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="section-title">PROJETOS ESPECIAIS (CSV)</div>
+
+                <div id="specialsContainer" class="specials-list">
+                </div>
+
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header>
+                <h1>Cotação Comercial</h1>
+                <div class="date-badge" id="currentDate">--/--/----</div>
+            </header>
+
+            <div class="results-grid">
+                <div class="result-card primary">
+                    <span class="result-label">MENSALIDADE TOTAL (C/ IMPOSTOS)</span>
+                    <div class="result-value" id="resMensal">R$ 0,00</div>
+                </div>
+                <div class="result-card secondary">
+                    <span class="result-label">INSTALAÇÃO TOTAL (C/ IMPOSTOS)</span>
+                    <div class="result-value" id="resInstalacao">R$ 0,00</div>
                 </div>
             </div>
 
-            <div class="card output-section">
-                <div class="card-header">
-                    <h2>Valores Calculados</h2>
+            <div class="email-container">
+                <div class="section-header">
+                    <h3>Texto para Proposta</h3>
+                    <button class="btn-icon" id="btnCopy">
+                        <span class="material-symbols-rounded">content_copy</span>
+                        Copiar
+                    </button>
                 </div>
-                
-                <div class="pricing-display">
-                    <div class="price-item secondary">
-                        <span>Instalação (S/ Impostos)</span>
-                        <strong id="dispInstS">R$ 0,00</strong>
-                    </div>
-                    <div class="price-item primary">
-                        <span>Instalação (C/ Impostos)</span>
-                        <strong id="dispInstC">R$ 0,00</strong>
-                    </div>
-                    
-                    <div class="divider-dashed"></div>
-                    
-                    <div class="price-item secondary">
-                        <span>Mensal (S/ Impostos)</span>
-                        <strong id="dispMensS">R$ 0,00</strong>
-                    </div>
-                    <div class="price-item total">
-                        <span>Mensal (C/ Impostos)</span>
-                        <strong id="dispMensC">R$ 0,00</strong>
-                    </div>
-                </div>
-
-                <div class="email-section">
-                    <h3>Modelo de E-mail</h3>
-                    <textarea id="emailOutput" readonly></textarea>
-                    <button class="btn-copy" onclick="copyToClipboard()">Copiar Texto</button>
-                </div>
+                <textarea id="emailTemplate" readonly placeholder="Preencha os dados na lateral para gerar a cotação..."></textarea>
             </div>
-        </div>
+        </main>
     </div>
 
+    <script src="dados.js"></script>
+    <script src="specials.js"></script>
     <script src="script.js"></script>
 </body>
+
 </html>
