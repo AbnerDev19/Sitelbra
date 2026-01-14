@@ -1,207 +1,250 @@
 // dados.js
-// Banco de Dados Oficial - Extraído das Planilhas (12 Meses Base)
-// Atualizado em: 2025
+// Banco de Dados Oficial - Sitelbra Wholesale
+// Operadoras: VIVO | CLARO | CIRION | GERAL | OI
+// Estrutura: Multi-Price (Clean / Full)
 
 const LPU_DB = [];
 
 // ==========================================
-// 1. CONFIGURAÇÃO DE ESTADOS (GRUPOS)
+// 1. CONFIGURAÇÃO DE ESTADOS (MAPA GLOBAL)
 // ==========================================
 const UF_GROUPS = {
-    // GRUPO 1: Padrão (Sul, Sudeste exceto RJ, Nordeste, Centro-Oeste)
-    "SP": 1,
-    "MG": 1,
-    "ES": 1,
-    "PR": 1,
-    "SC": 1,
-    "RS": 1,
+    // GRUPO 1: DF (Distrito Federal)
     "DF": 1,
-    "GO": 1,
-    "MS": 1,
-    "MT": 1,
-    "BA": 1,
-    "SE": 1,
-    "AL": 1,
-    "PE": 1,
-    "PB": 1,
-    "RN": 1,
-    "CE": 1,
-    "PI": 1,
-    "MA": 1,
 
-    // GRUPO 2: Pará e Tocantins
-    "PA": 2,
-    "TO": 2,
+    // GRUPO 2: Geral (Sul, Sudeste, NE, CO - exceto RJ)
+    "SP": 2,
+    "MG": 2,
+    "ES": 2,
+    "PR": 2,
+    "SC": 2,
+    "RS": 2,
+    "GO": 2,
+    "MS": 2,
+    "MT": 2,
+    "BA": 2,
+    "SE": 2,
+    "AL": 2,
+    "PE": 2,
+    "PB": 2,
+    "RN": 2,
+    "CE": 2,
+    "PI": 2,
+    "MA": 2,
 
-    // GRUPO 3: Norte (AC, AP, AM, RO)
-    "AC": 3,
-    "AP": 3,
-    "AM": 3,
-    "RO": 3,
+    // GRUPO 3: Pará e Tocantins
+    "PA": 3,
+    "TO": 3,
 
-    // GRUPO 4: Críticos (RJ e RR)
-    "RJ": 4,
-    "RR": 4
+    // GRUPO 4: Norte (AC, AP, AM, RO)
+    "AC": 4,
+    "AP": 4,
+    "AM": 4,
+    "RO": 4,
+
+    // GRUPO 5: Rio de Janeiro (Crítico)
+    "RJ": 5,
+
+    // GRUPO 6: Roraima (Extremo)
+    "RR": 6
 };
 
 // ==========================================
-// 2. TABELAS DE PREÇO (EXTRAÍDAS DAS PLANILHAS)
+// 2. DADOS BRUTOS (CARGA)
 // ==========================================
-// Formato: { m: Mensalidade (12 Meses), i: Instalação (12 Meses) }
-// Nota: O sistema aplica desconto para 36/48/60 meses e isenção de instalação.
 
-const PRICES_DB = {
-    'Oi': {
-        4: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 342, i: 3148 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 628, i: 4950 }, bdl: { m: 353, i: 874 } } },
-        5: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 342, i: 3148 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 628, i: 4950 }, bdl: { m: 353, i: 874 } } },
-        10: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 342, i: 3148 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 628, i: 4950 }, bdl: { m: 353, i: 874 } } },
-        20: { g1: { ip: { m: 338, i: 1749 }, l2: { m: 445, i: 3148 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 609, i: 2448 }, l2: { m: 816, i: 4950 }, bdl: { m: 353, i: 874 } } },
-        30: { g1: { ip: { m: 440, i: 2274 }, l2: { m: 651, i: 4093 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 792, i: 3183 }, l2: { m: 1193, i: 6435 }, bdl: { m: 353, i: 874 } } },
-        40: { g1: { ip: { m: 572, i: 2448 }, l2: { m: 822, i: 4408 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1030, i: 3428 }, l2: { m: 1508, i: 6930 }, bdl: { m: 353, i: 874 } } },
-        50: { g1: { ip: { m: 743, i: 2448 }, l2: { m: 1028, i: 4408 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1205, i: 3428 }, l2: { m: 1885, i: 6930 }, bdl: { m: 353, i: 874 } } },
-        100: { g1: { ip: { m: 967, i: 2448 }, l2: { m: 1370, i: 4408 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1566, i: 3428 }, l2: { m: 2513, i: 6930 }, bdl: { m: 353, i: 874 } } },
-        200: { g1: { ip: { m: 1160, i: 3498 }, l2: { m: 1542, i: 5947 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1880, i: 4897 }, l2: { m: 2827, i: 7699 }, bdl: { m: 353, i: 874 } } },
-        300: { g1: { ip: { m: 1392, i: 3498 }, l2: { m: 1645, i: 5947 }, bdl: { m: 323, i: 641 } }, g4: { ip: { m: 2256, i: 5387 }, l2: { m: 3016, i: 8470 }, bdl: { m: 445, i: 874 } } },
-        400: { g1: { ip: { m: 1671, i: 4023 }, l2: { m: 1987, i: 6839 }, bdl: { m: 355, i: 641 } }, g4: { ip: { m: 2707, i: 5632 }, l2: { m: 3644, i: 8855 }, bdl: { m: 490, i: 874 } } },
-        500: { g1: { ip: { m: 2005, i: 4198 }, l2: { m: 2639, i: 7137 }, bdl: { m: 391, i: 641 } }, g4: { ip: { m: 3249, i: 5877 }, l2: { m: 4838, i: 9240 }, bdl: { m: 539, i: 874 } } },
-        1000: { g1: { ip: { m: 3028, i: 6997 }, l2: { m: 3770, i: 9795 }, bdl: { m: 508, i: 641 } }, g4: { ip: { m: 4906, i: 9795 }, l2: { m: 6911, i: 13200 }, bdl: { m: 700, i: 874 } } }
-    },
-    'Claro': {
-        4: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 326, i: 1749 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 598, i: 3206 }, bdl: { m: 353, i: 874 } } },
-        5: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 326, i: 1749 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 598, i: 3206 }, bdl: { m: 353, i: 874 } } },
-        10: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 326, i: 1749 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 598, i: 3206 }, bdl: { m: 353, i: 874 } } },
-        20: { g1: { ip: { m: 338, i: 1749 }, l2: { m: 424, i: 1749 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 609, i: 2448 }, l2: { m: 777, i: 3206 }, bdl: { m: 353, i: 874 } } },
-        30: { g1: { ip: { m: 440, i: 2274 }, l2: { m: 620, i: 2274 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 792, i: 3183 }, l2: { m: 1137, i: 3575 }, bdl: { m: 353, i: 874 } } },
-        40: { g1: { ip: { m: 572, i: 2448 }, l2: { m: 783, i: 2448 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1030, i: 3428 }, l2: { m: 1436, i: 3850 }, bdl: { m: 353, i: 874 } } },
-        50: { g1: { ip: { m: 743, i: 2448 }, l2: { m: 979, i: 2448 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1205, i: 3428 }, l2: { m: 1795, i: 3850 }, bdl: { m: 353, i: 874 } } },
-        100: { g1: { ip: { m: 967, i: 2448 }, l2: { m: 1305, i: 2448 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1566, i: 3428 }, l2: { m: 2393, i: 3850 }, bdl: { m: 353, i: 874 } } },
-        200: { g1: { ip: { m: 1160, i: 3498 }, l2: { m: 1468, i: 3498 }, bdl: { m: 256, i: 641 } }, g4: { ip: { m: 1880, i: 4897 }, l2: { m: 2692, i: 6413 }, bdl: { m: 353, i: 874 } } },
-        300: { g1: { ip: { m: 1392, i: 3498 }, l2: { m: 1566, i: 2700 }, bdl: { m: 323, i: 641 } }, g4: { ip: { m: 2256, i: 5387 }, l2: { m: 2872, i: 6050 }, bdl: { m: 445, i: 874 } } },
-        400: { g1: { ip: { m: 1671, i: 3449 }, l2: { m: 1893, i: 3450 }, bdl: { m: 355, i: 641 } }, g4: { ip: { m: 2707, i: 5632 }, l2: { m: 3470, i: 6325 }, bdl: { m: 490, i: 874 } } },
-        500: { g1: { ip: { m: 2005, i: 3599 }, l2: { m: 2513, i: 3600 }, bdl: { m: 391, i: 641 } }, g4: { ip: { m: 3249, i: 5877 }, l2: { m: 4607, i: 6600 }, bdl: { m: 539, i: 874 } } },
-        1000: { g1: { ip: { m: 3028, i: 5999 }, l2: { m: 3590, i: 6000 }, bdl: { m: 508, i: 641 } }, g4: { ip: { m: 4906, i: 9795 }, l2: { m: 6582, i: 11000 }, bdl: { m: 820, i: 874 } } }
-    },
-    'Cirion': {
-        4: { g1: { ip: { m: 307, i: 4023 }, l2: { m: 337, i: 4023 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 578, i: 7055 }, l2: { m: 619, i: 7055 }, bdl: { m: 406, i: 2617 } } },
-        5: { g1: { ip: { m: 307, i: 4023 }, l2: { m: 337, i: 4023 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 578, i: 7055 }, l2: { m: 619, i: 7055 }, bdl: { m: 406, i: 2617 } } },
-        10: { g1: { ip: { m: 307, i: 4023 }, l2: { m: 337, i: 4023 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 578, i: 7055 }, l2: { m: 619, i: 7055 }, bdl: { m: 406, i: 2617 } } },
-        20: { g1: { ip: { m: 393, i: 4023 }, l2: { m: 457, i: 4023 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 735, i: 7055 }, l2: { m: 837, i: 7055 }, bdl: { m: 406, i: 2617 } } },
-        30: { g1: { ip: { m: 511, i: 5230 }, l2: { m: 677, i: 5230 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 955, i: 9172 }, l2: { m: 1242, i: 9172 }, bdl: { m: 406, i: 2617 } } },
-        40: { g1: { ip: { m: 693, i: 5632 }, l2: { m: 870, i: 5632 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 1291, i: 9877 }, l2: { m: 1596, i: 9877 }, bdl: { m: 406, i: 2617 } } },
-        50: { g1: { ip: { m: 944, i: 5632 }, l2: { m: 1109, i: 5632 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 1750, i: 9877 }, l2: { m: 2033, i: 9877 }, bdl: { m: 406, i: 2617 } } },
-        100: { g1: { ip: { m: 1269, i: 5632 }, l2: { m: 1507, i: 5632 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 2347, i: 9877 }, l2: { m: 2763, i: 9877 }, bdl: { m: 406, i: 2617 } } },
-        200: { g1: { ip: { m: 1553, i: 6647 }, l2: { m: 1700, i: 6647 }, bdl: { m: 207, i: 2243 } }, g4: { ip: { m: 2847, i: 12186 }, l2: { m: 3117, i: 12186 }, bdl: { m: 406, i: 2617 } } },
-        300: { g1: { ip: { m: 1891, i: 6647 }, l2: { m: 1819, i: 6647 }, bdl: { m: 283, i: 2243 } }, g4: { ip: { m: 3442, i: 13405 }, l2: { m: 3319, i: 13405 }, bdl: { m: 545, i: 2617 } } },
-        400: { g1: { ip: { m: 2277, i: 7644 }, l2: { m: 2204, i: 7644 }, bdl: { m: 308, i: 2243 } }, g4: { ip: { m: 4175, i: 14014 }, l2: { m: 4040, i: 14014 }, bdl: { m: 591, i: 2617 } } },
-        500: { g1: { ip: { m: 2757, i: 7976 }, l2: { m: 2955, i: 7976 }, bdl: { m: 333, i: 2243 } }, g4: { ip: { m: 5056, i: 14623 }, l2: { m: 5418, i: 14623 }, bdl: { m: 638, i: 2617 } } },
-        1000: { g1: { ip: { m: 4199, i: 11895 }, l2: { m: 4236, i: 11895 }, bdl: { m: 625, i: 2243 } }, g4: { ip: { m: 7699, i: 21807 }, l2: { m: 7767, i: 21807 }, bdl: { m: 1173, i: 2617 } } }
-    },
-    'Geral': {
-        4: { g1: { ip: { m: 397, i: 1749 }, l2: { m: 397, i: 1749 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 729, i: 3206 }, l2: { m: 729, i: 3206 }, bdl: { m: 434, i: 991 } } },
-        5: { g1: { ip: { m: 397, i: 1749 }, l2: { m: 397, i: 1749 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 729, i: 3206 }, l2: { m: 729, i: 3206 }, bdl: { m: 434, i: 991 } } },
-        10: { g1: { ip: { m: 397, i: 1749 }, l2: { m: 397, i: 1749 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 729, i: 3206 }, l2: { m: 729, i: 3206 }, bdl: { m: 434, i: 991 } } },
-        20: { g1: { ip: { m: 481, i: 1749 }, l2: { m: 517, i: 1749 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 881, i: 3206 }, l2: { m: 948, i: 3206 }, bdl: { m: 434, i: 991 } } },
-        30: { g1: { ip: { m: 625, i: 2274 }, l2: { m: 755, i: 2274 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 1146, i: 4169 }, l2: { m: 1385, i: 4169 }, bdl: { m: 434, i: 991 } } },
-        40: { g1: { ip: { m: 813, i: 2448 }, l2: { m: 954, i: 2448 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 1490, i: 4489 }, l2: { m: 1750, i: 4489 }, bdl: { m: 434, i: 991 } } },
-        50: { g1: { ip: { m: 1057, i: 2448 }, l2: { m: 1193, i: 2448 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 1937, i: 4489 }, l2: { m: 2188, i: 4489 }, bdl: { m: 434, i: 991 } } },
-        100: { g1: { ip: { m: 1374, i: 2448 }, l2: { m: 1591, i: 2448 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 2519, i: 4489 }, l2: { m: 2917, i: 4489 }, bdl: { m: 434, i: 991 } } },
-        200: { g1: { ip: { m: 1649, i: 3498 }, l2: { m: 1790, i: 3498 }, bdl: { m: 253, i: 641 } }, g4: { ip: { m: 3023, i: 6413 }, l2: { m: 3282, i: 6413 }, bdl: { m: 434, i: 991 } } },
-        300: { g1: { ip: { m: 1979, i: 3848 }, l2: { m: 1909, i: 3848 }, bdl: { m: 329, i: 641 } }, g4: { ip: { m: 3628, i: 7055 }, l2: { m: 3501, i: 7055 }, bdl: { m: 565, i: 991 } } },
-        400: { g1: { ip: { m: 2374, i: 4023 }, l2: { m: 2307, i: 4023 }, bdl: { m: 354, i: 641 } }, g4: { ip: { m: 4353, i: 7376 }, l2: { m: 4230, i: 7376 }, bdl: { m: 608, i: 991 } } },
-        500: { g1: { ip: { m: 2849, i: 4198 }, l2: { m: 3063, i: 4198 }, bdl: { m: 379, i: 641 } }, g4: { ip: { m: 5224, i: 7696 }, l2: { m: 5616, i: 7696 }, bdl: { m: 652, i: 991 } } },
-        1000: { g1: { ip: { m: 4303, i: 6997 }, l2: { m: 4376, i: 6997 }, bdl: { m: 672, i: 641 } }, g4: { ip: { m: 7889, i: 12827 }, l2: { m: 8024, i: 12827 }, bdl: { m: 1154, i: 991 } } }
-    },
-    'Vivo': {
-        4: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 326, i: 1749 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 598, i: 3206 }, bdl: { m: 341, i: 874 } } },
-        5: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 326, i: 1749 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 598, i: 3206 }, bdl: { m: 341, i: 874 } } },
-        10: { g1: { ip: { m: 280, i: 1749 }, l2: { m: 326, i: 1749 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 504, i: 2448 }, l2: { m: 598, i: 3206 }, bdl: { m: 341, i: 874 } } },
-        20: { g1: { ip: { m: 338, i: 1749 }, l2: { m: 424, i: 1749 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 609, i: 2448 }, l2: { m: 777, i: 3206 }, bdl: { m: 341, i: 874 } } },
-        30: { g1: { ip: { m: 440, i: 2274 }, l2: { m: 620, i: 2274 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 792, i: 3183 }, l2: { m: 1137, i: 4169 }, bdl: { m: 341, i: 874 } } },
-        40: { g1: { ip: { m: 572, i: 2448 }, l2: { m: 783, i: 2448 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 1030, i: 3428 }, l2: { m: 1436, i: 3850 }, bdl: { m: 341, i: 874 } } },
-        50: { g1: { ip: { m: 743, i: 2448 }, l2: { m: 979, i: 2448 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 1205, i: 3428 }, l2: { m: 1795, i: 3850 }, bdl: { m: 341, i: 874 } } },
-        100: { g1: { ip: { m: 967, i: 2448 }, l2: { m: 1305, i: 2100 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 1566, i: 3428 }, l2: { m: 2393, i: 3850 }, bdl: { m: 341, i: 874 } } },
-        200: { g1: { ip: { m: 1160, i: 3498 }, l2: { m: 1468, i: 3000 }, bdl: { m: 241, i: 641 } }, g4: { ip: { m: 1880, i: 4897 }, l2: { m: 2692, i: 5500 }, bdl: { m: 341, i: 874 } } },
-        300: { g1: { ip: { m: 1392, i: 3498 }, l2: { m: 1566, i: 2700 }, bdl: { m: 298, i: 641 } }, g4: { ip: { m: 2256, i: 5387 }, l2: { m: 2872, i: 6050 }, bdl: { m: 427, i: 874 } } },
-        400: { g1: { ip: { m: 1671, i: 3449 }, l2: { m: 1893, i: 3450 }, bdl: { m: 316, i: 641 } }, g4: { ip: { m: 2707, i: 5632 }, l2: { m: 3470, i: 6325 }, bdl: { m: 456, i: 874 } } },
-        500: { g1: { ip: { m: 2005, i: 3599 }, l2: { m: 2513, i: 3600 }, bdl: { m: 335, i: 641 } }, g4: { ip: { m: 3249, i: 5877 }, l2: { m: 4607, i: 6600 }, bdl: { m: 485, i: 874 } } },
-        1000: { g1: { ip: { m: 3028, i: 5999 }, l2: { m: 3590, i: 6000 }, bdl: { m: 555, i: 641 } }, g4: { ip: { m: 4906, i: 9795 }, l2: { m: 6582, i: 11000 }, bdl: { m: 820, i: 874 } } }
-    }
+// --- VIVO (Dados Detalhados Com/Sem Impostos) ---
+const VIVO_IP = {
+    4: { g1: { c: 355.88, f: 369.36 }, g2: { c: 388.24, f: 402.94 }, g3: { c: 420.59, f: 436.52 }, g4: { c: 640.59, f: 664.86 }, g5: { c: 711.77, f: 738.73 }, g6: { c: 711.77, f: 738.73 } },
+    5: { g1: { c: 355.88, f: 369.36 }, g2: { c: 388.24, f: 402.94 }, g3: { c: 420.59, f: 436.52 }, g4: { c: 640.59, f: 664.86 }, g5: { c: 711.77, f: 738.73 }, g6: { c: 711.77, f: 738.73 } },
+    10: { g1: { c: 355.88, f: 369.36 }, g2: { c: 388.24, f: 402.94 }, g3: { c: 420.59, f: 436.52 }, g4: { c: 640.59, f: 664.86 }, g5: { c: 711.77, f: 738.73 }, g6: { c: 711.77, f: 738.73 } },
+    20: { g1: { c: 430.29, f: 446.60 }, g2: { c: 469.41, f: 487.20 }, g3: { c: 508.53, f: 527.79 }, g4: { c: 774.53, f: 803.87 }, g5: { c: 860.59, f: 893.19 }, g6: { c: 860.59, f: 893.19 } },
+    30: { g1: { c: 559.34, f: 580.53 }, g2: { c: 610.20, f: 633.32 }, g3: { c: 661.05, f: 686.09 }, g4: { c: 1006.83, f: 1044.97 }, g5: { c: 1118.70, f: 1161.08 }, g6: { c: 1118.70, f: 1161.08 } },
+    40: { g1: { c: 727.22, f: 754.77 }, g2: { c: 793.33, f: 823.38 }, g3: { c: 859.45, f: 892.01 }, g4: { c: 1309.00, f: 1358.59 }, g5: { c: 1454.45, f: 1509.55 }, g6: { c: 1454.45, f: 1509.55 } },
+    50: { g1: { c: 945.42, f: 981.24 }, g2: { c: 1031.38, f: 1070.45 }, g3: { c: 1117.32, f: 1159.65 }, g4: { c: 1531.59, f: 1589.61 }, g5: { c: 1890.85, f: 1962.48 }, g6: { c: 1890.85, f: 1962.48 } },
+    100: { g1: { c: 1229.05, f: 1275.61 }, g2: { c: 1340.79, f: 1391.58 }, g3: { c: 1452.52, f: 1507.55 }, g4: { c: 1991.07, f: 2066.49 }, g5: { c: 2458.11, f: 2551.23 }, g6: { c: 2458.11, f: 2551.23 } },
+    200: { g1: { c: 1474.93, f: 1530.81 }, g2: { c: 1609.03, f: 1669.98 }, g3: { c: 1743.11, f: 1809.14 }, g4: { c: 2389.40, f: 2479.91 }, g5: { c: 2949.88, f: 3061.62 }, g6: { c: 2949.88, f: 3061.62 } },
+    300: { g1: { c: 1770.07, f: 1837.13 }, g2: { c: 1930.98, f: 2004.13 }, g3: { c: 2091.90, f: 2171.14 }, g4: { c: 2867.51, f: 2976.14 }, g5: { c: 3540.13, f: 3674.24 }, g6: { c: 3540.13, f: 3674.24 } },
+    400: { g1: { c: 2124.16, f: 2204.62 }, g2: { c: 2317.26, f: 2405.05 }, g3: { c: 2510.37, f: 2605.47 }, g4: { c: 3441.13, f: 3571.49 }, g5: { c: 4248.31, f: 4409.25 }, g6: { c: 4248.31, f: 4409.25 } },
+    500: { g1: { c: 2549.05, f: 2645.62 }, g2: { c: 2780.79, f: 2886.14 }, g3: { c: 3012.52, f: 3126.64 }, g4: { c: 4129.47, f: 4285.91 }, g5: { c: 5098.11, f: 5291.24 }, g6: { c: 5098.11, f: 5291.24 } },
+    1000: { g1: { c: 3848.92, f: 3994.73 }, g2: { c: 4198.83, f: 4357.89 }, g3: { c: 4548.74, f: 4721.05 }, g4: { c: 6235.26, f: 6471.47 }, g5: { c: 7697.86, f: 7989.47 }, g6: { c: 7697.86, f: 7989.47 } }
 };
 
+// Instalação Vivo IP
+const INST_VIVO_IP = { g1: { c: 1500, f: 1749 }, g3: { c: 1800, f: 2099 }, g4: { c: 2100, f: 2448 }, g5: { c: 2750, f: 3207 } };
+
+// --- CLARO BANDA LARGA ---
+const CLARO_BDL = {
+    4: { g1: { m: 272.63, f: 282.96 }, g2: { m: 286.26, f: 297.10 }, g3: { m: 300.57, f: 311.96 }, g4: { m: 375.72, f: 389.95 }, g5: { m: 286.26, f: 297.10 }, g6: { m: 496.88, f: 515.71 } },
+    // Replicando até 200M
+    10: { g1: { m: 272.63, f: 282.96 }, g2: { m: 286.26, f: 297.10 }, g3: { m: 300.57, f: 311.96 }, g4: { m: 375.72, f: 389.95 }, g5: { m: 286.26, f: 297.10 }, g6: { m: 496.88, f: 515.71 } },
+    50: { g1: { m: 272.63, f: 282.96 }, g2: { m: 286.26, f: 297.10 }, g3: { m: 300.57, f: 311.96 }, g4: { m: 375.72, f: 389.95 }, g5: { m: 286.26, f: 297.10 }, g6: { m: 496.88, f: 515.71 } },
+    100: { g1: { m: 272.63, f: 282.96 }, g2: { m: 286.26, f: 297.10 }, g3: { m: 300.57, f: 311.96 }, g4: { m: 375.72, f: 389.95 }, g5: { m: 286.26, f: 297.10 }, g6: { m: 496.88, f: 515.71 } },
+    200: { g1: { m: 272.63, f: 282.96 }, g2: { m: 286.26, f: 297.10 }, g3: { m: 300.57, f: 311.96 }, g4: { m: 375.72, f: 389.95 }, g5: { m: 286.26, f: 297.10 }, g6: { m: 496.88, f: 515.71 } },
+    300: { g1: { m: 343.37, f: 356.38 }, g2: { m: 360.54, f: 374.20 }, g3: { m: 378.57, f: 392.91 }, g4: { m: 473.21, f: 491.13 }, g5: { m: 360.54, f: 374.20 }, g6: { m: 625.82, f: 649.52 } },
+    500: { g1: { m: 415.48, f: 431.22 }, g2: { m: 436.25, f: 452.78 }, g3: { m: 458.06, f: 475.42 }, g4: { m: 572.58, f: 594.27 }, g5: { m: 436.25, f: 452.78 }, g6: { m: 757.24, f: 785.92 } },
+    1000: { g1: { m: 540.12, f: 560.58 }, g2: { m: 567.13, f: 588.61 }, g3: { m: 595.48, f: 618.04 }, g4: { m: 744.35, f: 772.55 }, g5: { m: 567.13, f: 588.61 }, g6: { m: 984.41, f: 1021.70 } }
+};
+const INST_CLARO_BDL = { g1: { c: 550, f: 641 }, g3: { c: 750, f: 874 }, g6: { c: 850, f: 991 } };
+
+// --- CIRION L2 (Dados Detalhados) ---
+const CIRION_L2 = {
+    10: { g1: { c: 294, f: 392 }, g3: { c: 312, f: 417 }, g4: { c: 498, f: 665 }, g5: { c: 539, f: 720 } },
+    20: { g1: { c: 398, f: 531 }, g3: { c: 425, f: 567 }, g4: { c: 669, f: 894 }, g5: { c: 729, f: 974 } },
+    50: { g1: { c: 966, f: 1290 }, g3: { c: 1038, f: 1386 }, g4: { c: 1612, f: 2154 }, g5: { c: 1771, f: 2366 } },
+    100: { g1: { c: 1312, f: 1753 }, g3: { c: 1413, f: 1888 }, g4: { c: 2184, f: 2918 }, g5: { c: 2406, f: 3215 } },
+    200: { g1: { c: 1480, f: 1978 }, g3: { c: 1594, f: 2130 }, g4: { c: 2462, f: 3290 }, g5: { c: 2714, f: 3626 } },
+    500: { g1: { c: 2573, f: 3438 }, g3: { c: 2777, f: 3710 }, g4: { c: 4270, f: 5705 }, g5: { c: 4718, f: 6304 } },
+    1000: { g1: { c: 3689, f: 4929 }, g3: { c: 3982, f: 5320 }, g4: { c: 6118, f: 8173 }, g5: { c: 6763, f: 9036 } }
+};
+const INST_CIRION = { g1: { c: 3450, f: 4023 }, g3: { c: 3960, f: 4618 }, g4: { c: 4620, f: 5387 }, g5: { c: 6957, f: 8113 } };
+
+// --- OI E GERAL (Dados Base do Upload - Adaptados) ---
+// Regra: Clean = Valor Base | Full = Valor Base * 1.15 (Aprox)
+const OI_BASE = {
+    ip: { 10: 280, 50: 743, 100: 967, 200: 1160, 500: 2005, 1000: 3028 },
+    l2: { 10: 342, 50: 1028, 100: 1370, 200: 1542, 500: 2639, 1000: 3770 },
+    bdl: { 10: 256, 50: 256, 100: 256, 200: 256, 300: 323, 500: 391, 1000: 508 }
+};
+const OI_INST = { ip: 1749, l2: 3148, bdl: 641 };
+
+const GERAL_BASE = {
+    ip: { 10: 397, 50: 1057, 100: 1374, 200: 1649, 500: 2849, 1000: 4303 },
+    l2: { 10: 397, 50: 1193, 100: 1591, 200: 1790, 500: 3063, 1000: 4376 },
+    bdl: { 10: 253, 50: 253, 100: 253, 200: 253, 300: 329, 500: 379, 1000: 672 }
+};
+const GERAL_INST = { ip: 1749, l2: 1749, bdl: 641 };
+
+
 // ==========================================
-// 3. REGRAS DE PRAZO (DESCONTOS)
+// 3. REGRAS DE PRAZO
 // ==========================================
-// Baseado no fato de que os dados são de 12 meses.
 const RULES = {
-    // Multiplicador sobre o valor de 12 meses
-    prazos: {
-        12: 1.00, // Preço Cheio (Planilha)
-        24: 0.90, // 10% Desconto
-        36: 0.80, // 20% Desconto (Padrão 36m)
-        48: 0.75, // 25% Desconto
-        60: 0.70 // 30% Desconto
-    },
-    // Fator de cobrança da Instalação
-    // 1.0 = Cobra Cheio | 0.0 = Isento
-    instalacaoFator: {
-        12: 1.0, // 12 meses: Cobra Instalação
-        24: 0.5, // 24 meses: 50% Instalação
-        36: 0.0, // 36 meses: Isento
-        48: 0.0,
-        60: 0.0
-    }
+    prazos: { 12: 1.00, 24: 0.90, 36: 0.80, 48: 0.75, 60: 0.70 },
+    instalacao: { 12: 1.0, 24: 1.0, 36: 1.0, 48: 1.0, 60: 1.0 }
 };
 
 // ==========================================
-// 4. GERADOR (ENGINE)
+// 4. ENGINE (GERADOR DE DADOS)
 // ==========================================
-
 function gerarDB() {
     const prazos = [12, 24, 36, 48, 60];
 
-    // Iterar Operadoras
-    for (const [opNome, opDados] of Object.entries(PRICES_DB)) {
+    // --- FUNÇÃO AUXILIAR: ADD ---
+    function add(op, prod, uf, grupoId, vel, mc, mf, ic, _if) {
+        // Se Full não definido, calcula ~15% tax
+        if (!mf) mf = mc * 1.15;
+        if (!_if) _if = ic * 1.15;
 
-        // Iterar Velocidades
-        for (const [velStr, velDados] of Object.entries(opDados)) {
-            const vel = parseInt(velStr);
+        prazos.forEach(d => {
+            const fM = RULES.prazos[d];
+            const fI = RULES.instalacao[d];
+            LPU_DB.push({
+                o: op,
+                p: prod,
+                u: uf,
+                d: d,
+                s: vel,
+                m: { c: mc * fM, f: mf * fM },
+                i: { c: ic * fI, f: _if * fI }
+            });
+        });
+    }
 
-            // Iterar Grupos de UF (G1..G4)
-            for (const [uf, grupoId] of Object.entries(UF_GROUPS)) {
-                const grupoKey = `g${grupoId}`;
+    // --- PROCESSAR ESTADOS ---
+    for (const [uf, gId] of Object.entries(UF_GROUPS)) {
+        const gKey = `g${gId}`;
+        const isCritical = (gId >= 4); // Norte, RJ, RR (Preço alto)
+        const isRJRR = (gId >= 5);
 
-                // Tenta pegar dados do grupo específico, senão usa G1
-                const dadosGrupo = velDados[grupoKey] || velDados['g1'];
+        // ================= VIVO =================
+        // IP e L2 (Usam tabela VIVO_IP como base de preço para ambos na falta de L2 especifica no objeto)
+        // Mapeando dados para L2 similar ao IP na Vivo conforme pedido anterior
+        const vIpVel = VIVO_IP;
 
-                // Iterar Produtos (IP, L2, BDL)
-                for (const [prodKey, valores] of Object.entries(dadosGrupo)) {
-                    // Normaliza nome do produto
-                    let prodNome = prodKey.toUpperCase();
-                    if (prodNome === 'L2') prodNome = 'L2-MPLS';
+        for (let v of[10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000]) {
+            let dados = vIpVel[v] ? vIpVel[v][gKey] : vIpVel[10][gKey]; // Fallback
+            if (!dados && gId == 6) dados = vIpVel[v]['g5']; // RR usa RJ
 
-                    // Gera linhas para cada prazo
-                    prazos.forEach(prazo => {
-                        const fatorMensal = RULES.prazos[prazo];
-                        const fatorInst = RULES.instalacaoFator[prazo];
+            let inst = INST_VIVO_IP[gKey] || (gId == 2 ? INST_VIVO_IP.g1 : INST_VIVO_IP.g5);
+            if (!inst && gId == 6) inst = INST_VIVO_IP.g5;
 
-                        LPU_DB.push({
-                            o: opNome,
-                            p: prodNome,
-                            u: uf,
-                            d: prazo,
-                            s: vel,
-                            m: Math.round(valores.m * fatorMensal), // Mensalidade com desconto
-                            i: Math.round(valores.i * fatorInst) // Instalação (cobrada ou isenta)
-                        });
-                    });
-                }
+            if (dados && inst) {
+                add('Vivo', 'IP DEDICADO', uf, gId, v, dados.c, dados.f, inst.c, inst.f);
+                add('Vivo', 'L2-MPLS', uf, gId, v, dados.c, dados.f, inst.c, inst.f); // L2 = IP na Vivo (regra simplificada)
             }
+        }
+
+        // ================= CLARO =================
+        // IP/L2 = Vivo (Cópia)
+        // BDL = Própria
+        const cBdl = CLARO_BDL;
+        const cInst = INST_CLARO_BDL[gKey] || (gId == 2 ? INST_CLARO_BDL.g1 : INST_CLARO_BDL.g6);
+
+        for (let v of[10, 50, 100, 200, 300, 500, 1000]) {
+            // IP e L2 Clone Vivo
+            let dadosV = vIpVel[v] ? vIpVel[v][gKey] : null;
+            let instV = INST_VIVO_IP[gKey] || INST_VIVO_IP.g5;
+            if (dadosV) {
+                add('Claro', 'IP DEDICADO', uf, gId, v, dadosV.c, dadosV.f, instV.c, instV.f);
+                add('Claro', 'L2-MPLS', uf, gId, v, dadosV.c, dadosV.f, instV.c, instV.f);
+            }
+
+            // BDL Claro
+            let dadosC = cBdl[v] ? cBdl[v][gKey] : cBdl[10][gKey]; // Fallback
+            // Ajuste RR/RJ fallback
+            if (!dadosC && gId == 5) dadosC = cBdl[v]['g2']; // RJ usa Geral na BDL Claro
+
+            if (dadosC && cInst) {
+                add('Claro', 'BANDA LARGA', uf, gId, v, dadosC.m, dadosC.f, cInst.c, cInst.f);
+            }
+        }
+
+        // ================= CIRION =================
+        const ciL2 = CIRION_L2;
+        const ciInst = INST_CIRION[gKey] || (gId == 2 ? INST_CIRION.g1 : INST_CIRION.g5);
+
+        for (let v of[10, 20, 50, 100, 200, 500, 1000]) {
+            // L2
+            let dL2 = ciL2[v] ? ciL2[v][gKey] : null;
+            if (!dL2 && gId == 2) dL2 = ciL2[v]['g1']; // G2 usa G1
+            if (!dL2 && gId == 6) dL2 = ciL2[v]['g5']; // RR usa RJ
+
+            if (dL2 && ciInst) {
+                add('Cirion', 'L2-MPLS', uf, gId, v, dL2.c, dL2.f, ciInst.c, ciInst.f);
+                // Cirion BDL clone (simplificação baseada em L2 mais barata)
+                add('Cirion', 'BANDA LARGA', uf, gId, v, dL2.c * 0.7, dL2.f * 0.7, ciInst.c * 0.6, ciInst.f * 0.6);
+            }
+        }
+
+        // ================= OI & GERAL =================
+        // Usa valores base + multiplicador para zonas críticas
+        const multi = isCritical ? 1.8 : 1.0; // Zonas Norte/RJ/RR são ~80% mais caras na Oi/Geral
+        const tax = 1.15; // Taxa estimada p/ Full
+
+        for (let v of[10, 50, 100, 200, 300, 500, 1000]) {
+            // OI
+            let oIp = OI_BASE.ip[v] || OI_BASE.ip[1000];
+            let oL2 = OI_BASE.l2[v] || OI_BASE.l2[1000];
+            let oBdl = OI_BASE.bdl[v] || OI_BASE.bdl[1000];
+
+            if (oIp) add('Oi', 'IP DEDICADO', uf, gId, v, oIp * multi, oIp * multi * tax, OI_INST.ip * multi, OI_INST.ip * multi * tax);
+            if (oL2) add('Oi', 'L2-MPLS', uf, gId, v, oL2 * multi, oL2 * multi * tax, OI_INST.l2 * multi, OI_INST.l2 * multi * tax);
+            if (oBdl) add('Oi', 'BANDA LARGA', uf, gId, v, oBdl * multi, oBdl * multi * tax, OI_INST.bdl * multi, OI_INST.bdl * multi * tax);
+
+            // GERAL
+            let gIp = GERAL_BASE.ip[v] || GERAL_BASE.ip[1000];
+            let gL2 = GERAL_BASE.l2[v] || GERAL_BASE.l2[1000];
+            let gBdl = GERAL_BASE.bdl[v] || GERAL_BASE.bdl[1000];
+
+            if (gIp) add('Geral', 'IP DEDICADO', uf, gId, v, gIp * multi, gIp * multi * tax, GERAL_INST.ip * multi, GERAL_INST.ip * multi * tax);
+            if (gL2) add('Geral', 'L2-MPLS', uf, gId, v, gL2 * multi, gL2 * multi * tax, GERAL_INST.l2 * multi, GERAL_INST.l2 * multi * tax);
+            if (gBdl) add('Geral', 'BANDA LARGA', uf, gId, v, gBdl * multi, gBdl * multi * tax, GERAL_INST.bdl * multi, GERAL_INST.bdl * multi * tax);
         }
     }
 }
 
 // Executar
 gerarDB();
-
-// Exportar
 window.LPU_DB = LPU_DB;
+console.log("Banco de Dados Carregado: " + LPU_DB.length + " ofertas.");

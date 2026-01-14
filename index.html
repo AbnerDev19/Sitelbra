@@ -10,138 +10,110 @@
 </head>
 
 <body>
-
     <div class="app-layout">
         <aside class="sidebar">
             <div class="brand">
                 <div class="logo-icon">S</div>
                 <span>Sitelbra Wholesale</span>
             </div>
-
             <div class="scroll-content">
                 <div class="section-title">PARÂMETROS DO LINK</div>
-
                 <div class="form-group">
                     <label>Operadora</label>
                     <div class="select-wrapper">
-                        <select id="selOperadora">
-                            <option value="">Carregando...</option>
-                        </select>
+                        <select id="selOperadora"><option value="">Carregando...</option></select>
                     </div>
                 </div>
-
                 <div class="form-row">
                     <div class="form-group">
                         <label>Produto</label>
                         <div class="select-wrapper">
-                            <select id="selProduto">
-                                <option value="">...</option>
-                            </select>
+                            <select id="selProduto"><option value="">...</option></select>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Prazo</label>
                         <div class="select-wrapper">
                             <select id="selPrazo">
-            <option value="12">12 Meses</option>
-            <option value="24">24 Meses</option>
-            <option value="36" selected>36 Meses</option>
-            <option value="48">48 Meses</option> <option value="60">60 Meses</option> </select>
+                                <option value="12">12 Meses</option>
+                                <option value="24">24 Meses</option>
+                                <option value="36" selected>36 Meses</option>
+                                <option value="48">48 Meses</option>
+                                <option value="60">60 Meses</option>
+                            </select>
                         </div>
                     </div>
                 </div>
-
                 <div class="form-row">
                     <div class="form-group">
                         <label>UF</label>
                         <div class="select-wrapper">
-                            <select id="selUF">
-                                <option value="">...</option>
-                            </select>
+                            <select id="selUF"><option value="">...</option></select>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Velocidade</label>
                         <div class="select-wrapper">
-                            <select id="selVelocidade" disabled>
-                                <option value="">Selecione UF...</option>
-                            </select>
+                            <select id="selVelocidade" disabled><option value="">Selecione UF...</option></select>
                         </div>
                     </div>
                 </div>
 
-                <div class="divider"></div>
-
-                <div class="section-title">ADICIONAIS E TIPO DE LOCAL</div>
-
-                <div class="toggles-list">
-                    <label class="toggle-item">
-                        <input type="checkbox" id="checkShopping">
-                        <span class="toggle-label">Shopping Center (x2)</span>
-                    </label>
-                    <label class="toggle-item">
-                        <input type="checkbox" id="checkAeroporto">
-                        <span class="toggle-label">Aeroporto (x3)</span>
-                    </label>
-                    <label class="toggle-item">
-                        <input type="checkbox" id="checkIndustria">
-                        <span class="toggle-label">Indústria/Galpão (x1.4)</span>
-                    </label>
-                    <label class="toggle-item">
-                        <input type="checkbox" id="checkDatacenter">
-                        <span class="toggle-label">Datacenter (+ Cross)</span>
-                    </label>
-                    <label class="toggle-item">
-                        <input type="checkbox" id="checkRural">
-                        <span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra Dedicada</span>
-                    </label>
+                <div class="form-group" style="background: #eef; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                    <label style="color: #333; font-weight: 600;">Visualização de Impostos</label>
+                    <div class="select-wrapper">
+                        <select id="selImpostoMode">
+                            <option value="com" selected>Com Impostos (Final)</option>
+                            <option value="sem">Sem Impostos (Clean)</option>
+                            <option value="ambos">Ambos (Detalhado)</option>
+                        </select>
+                    </div>
                 </div>
 
+                <div class="divider"></div>
+                <div class="section-title">ADICIONAIS E TIPO DE LOCAL</div>
+                <div class="toggles-list">
+                    <label class="toggle-item"><input type="checkbox" id="checkShopping"><span class="toggle-label">Shopping Center (x2)</span></label>
+                    <label class="toggle-item"><input type="checkbox" id="checkAeroporto"><span class="toggle-label">Aeroporto (x3)</span></label>
+                    <label class="toggle-item"><input type="checkbox" id="checkIndustria"><span class="toggle-label">Indústria/Galpão (x1.4)</span></label>
+                    <label class="toggle-item"><input type="checkbox" id="checkDatacenter"><span class="toggle-label">Datacenter (+ Cross)</span></label>
+                    <label class="toggle-item"><input type="checkbox" id="checkRural"><span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra Dedicada</span></label>
+                </div>
                 <div id="ruralOptions" class="hidden" style="margin-top:15px; background:var(--accent-light); padding:10px; border-radius:8px;">
                     <label class="input-label" style="font-size:0.8rem;">Metros de construção de rede:</label>
                     <input type="number" id="inputDistancia" placeholder="Ex: 500" class="input-text">
                 </div>
-
                 <div class="divider"></div>
-
                 <div class="section-title">PROJETOS ESPECIAIS (CSV)</div>
-
-                <div id="specialsContainer" class="specials-list">
-                </div>
-
+                <div id="specialsContainer" class="specials-list"></div>
             </div>
         </aside>
-
         <main class="main-content">
             <header>
                 <h1>Cotação Comercial</h1>
                 <div class="date-badge" id="currentDate">--/--/----</div>
             </header>
-
             <div class="results-grid">
                 <div class="result-card primary">
-                    <span class="result-label">MENSALIDADE TOTAL (C/ IMPOSTOS)</span>
+                    <span class="result-label">MENSALIDADE TOTAL</span>
                     <div class="result-value" id="resMensal">R$ 0,00</div>
+                    <small id="resMensalObs" style="color: #666; font-size: 0.8rem;"></small>
                 </div>
                 <div class="result-card secondary">
-                    <span class="result-label">INSTALAÇÃO TOTAL (C/ IMPOSTOS)</span>
+                    <span class="result-label">INSTALAÇÃO TOTAL</span>
                     <div class="result-value" id="resInstalacao">R$ 0,00</div>
+                    <small id="resInstalacaoObs" style="color: #666; font-size: 0.8rem;"></small>
                 </div>
             </div>
-
             <div class="email-container">
                 <div class="section-header">
                     <h3>Texto para Proposta</h3>
-                    <button class="btn-icon" id="btnCopy">
-                        <span class="material-symbols-rounded">content_copy</span>
-                        Copiar
-                    </button>
+                    <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span> Copiar</button>
                 </div>
                 <textarea id="emailTemplate" readonly placeholder="Preencha os dados na lateral para gerar a cotação..."></textarea>
             </div>
         </main>
     </div>
-
     <script src="dados.js"></script>
     <script src="specials.js"></script>
     <script src="script.js"></script>

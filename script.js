@@ -3,28 +3,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateEl = document.getElementById('currentDate');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('pt-BR');
 
-    // Validação de Arquivos
-    if (typeof window.LPU_DB === 'undefined' || typeof window.SPECIALS_DB === 'undefined') {
-        alert("Erro: Arquivos 'dados.js' ou 'specials.js' não carregados.");
-        return;
-    }
-
-    console.log(`Sistema iniciado. LPU: ${window.LPU_DB.length} | Specials: ${window.SPECIALS_DB.length}`);
-
     // Inicialização
     populateDropdowns();
-    renderSpecials(); // Gera os checkboxes dos projetos especiais
+    renderSpecials();
 
-    // Listeners Globais (qualquer mudança recalcula)
+    // Listeners Globais
     document.body.addEventListener('change', calculate);
     document.body.addEventListener('input', (e) => {
         if (e.target.type === 'number') calculate();
     });
 
-    // Botões
+    // Listener Específico para o Modo de Imposto
+    const selImposto = document.getElementById('selImpostoMode');
+    if (selImposto) selImposto.addEventListener('change', calculate);
+
     document.getElementById('btnCopy').addEventListener('click', copyEmail);
 
-    // Toggle Rural Específico
+    // Toggle Rural
     const checkRural = document.getElementById('checkRural');
     if (checkRural) {
         checkRural.addEventListener('change', (e) => {
@@ -36,20 +31,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- RENDERIZAÇÃO DE ESPECIAIS ---
+// --- RENDERIZAÇÃO DE ESPECIAIS (Mantida) ---
 function renderSpecials() {
     const container = document.getElementById('specialsContainer');
-    if (!container) return;
-
-    container.innerHTML = ''; // Limpa
+    if (!container || typeof window.SPECIALS_DB === 'undefined') return;
+    container.innerHTML = '';
 
     window.SPECIALS_DB.forEach(item => {
-        // Cria o elemento visual para cada item do CSV
         const div = document.createElement('div');
         div.className = 'toggle-item';
         div.style.marginBottom = "8px";
 
-        // Checkbox
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `sp_${item.id}`;
@@ -58,18 +50,14 @@ function renderSpecials() {
         checkbox.dataset.name = item.nome;
         checkbox.dataset.hasInput = item.input || false;
 
-        // Label
         const label = document.createElement('span');
         label.className = 'toggle-label';
-
-        // Se for item com valor fixo, mostra o preço. Se for input livre, mostra campo.
         if (item.input) {
             label.innerHTML = `${item.nome} <br><input type="number" id="val_${item.id}" class="input-text" style="width:100px; margin-top:5px; font-size:0.8rem;" placeholder="R$ valor">`;
         } else {
             label.innerText = `${item.nome} (+R$ ${item.valor})`;
         }
 
-        // Monta o HTML
         const labelContainer = document.createElement('label');
         labelContainer.style.display = 'flex';
         labelContainer.style.alignItems = 'flex-start';
@@ -83,8 +71,9 @@ function renderSpecials() {
     });
 }
 
-// --- LÓGICA DE SELEÇÃO (MANTIDA) ---
+// --- LÓGICA DE SELEÇÃO ---
 function populateDropdowns() {
+    if (typeof window.LPU_DB === 'undefined') return;
     const db = window.LPU_DB;
     fillSelect('selOperadora', [...new Set(db.map(i => i.o))].sort());
     fillSelect('selProduto', [...new Set(db.map(i => i.p))].sort());
@@ -114,7 +103,6 @@ function updateSpeeds() {
     const selSpeed = document.getElementById('selVelocidade');
 
     if (!selSpeed) return;
-
     selSpeed.innerHTML = '<option value="">Selecione...</option>';
     selSpeed.disabled = true;
 
@@ -135,31 +123,39 @@ function updateSpeeds() {
     calculate();
 }
 
-// --- CÁLCULO CORE ---
+// --- CÁLCULO CORE (ATUALIZADO) ---
 
 function calculate() {
-    // 1. Dados Básicos
+    // Inputs
     const op = document.getElementById('selOperadora').value;
     const prod = document.getElementById('selProduto').value;
     const uf = document.getElementById('selUF').value;
     const dur = parseInt(document.getElementById('selPrazo').value) || 36;
     const speed = parseFloat(document.getElementById('selVelocidade').value) || 0;
+    const impostoMode = document.getElementById('selImpostoMode') ? document.getElementById('selImpostoMode').value : 'com';
 
-    let mensal = 0;
-    let instalacao = 0;
+    // Valores Base (Objetos {c, f})
+    let mensalObj = { c: 0, f: 0 };
+    let instalObj = { c: 0, f: 0 };
 
-    // Busca LPU Base
     if (speed) {
         const item = window.LPU_DB.find(i =>
             i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed
         );
-        if (item) {
-            mensal = item.m;
-            instalacao = item.i;
+        if (item && item.m) {
+            // Verifica se o dado veio no formato novo {c,f} ou antigo (numero direto)
+            if (typeof item.m === 'object') {
+                mensalObj = item.m;
+                instalObj = item.i;
+            } else {
+                // Fallback para versões antigas do DB
+                mensalObj = { c: item.m, f: item.m };
+                instalObj = { c: item.i, f: item.i };
+            }
         }
     }
 
-    // 2. Fatores Multiplicadores (Local)
+    // Fatores Multiplicadores (Local)
     let fator = 1.0;
     const detalhes = [];
 
@@ -176,9 +172,10 @@ function calculate() {
         detalhes.push("Indústria (x1.4)");
     }
 
-    let extraDatacenter = 0;
+    // Datacenter
+    let extraData = 0;
     if (document.getElementById('checkDatacenter').checked) {
-        extraDatacenter = 1200;
+        extraData = 1200;
         detalhes.push("Datacenter (+1.2k)");
     }
 
@@ -186,59 +183,78 @@ function calculate() {
     let custoRural = 0;
     if (document.getElementById('checkRural').checked) {
         const dist = parseFloat(document.getElementById('inputDistancia').value) || 0;
-        // Fórmula Rural: ((Metros * 4.50) + 800 Ativação) * 1.16 Imposto
         custoRural = ((dist * 4.50) + 800) * 1.16;
         detalhes.push(`Rural (${dist}m)`);
     }
 
-    // 3. PROJETOS ESPECIAIS (Cálculo Dinâmico)
-    let specialMensal = 0;
-    let specialInstal = 0;
+    // Projetos Especiais
+    let specialM = 0;
+    let specialI = 0;
     const specialList = [];
-
-    // Itera sobre todos os checkboxes gerados pelo specials.js
     const checkboxes = document.querySelectorAll('input[id^="sp_"]');
     checkboxes.forEach(chk => {
         if (chk.checked) {
             let val = parseFloat(chk.dataset.price);
             const name = chk.dataset.name;
-            const type = chk.dataset.type; // 'mensal' ou 'instalacao'
+            const type = chk.dataset.type;
             const hasInput = chk.dataset.hasInput === 'true';
 
-            // Se for um item variavel (ex: obra civil digitada), pega o valor do input atrelado
             if (hasInput) {
                 const inputVal = document.getElementById(`val_${chk.id.replace('sp_','')}`);
                 if (inputVal) val = parseFloat(inputVal.value) || 0;
             }
 
-            // Soma nos totais corretos
             if (type === 'mensal') {
-                specialMensal += val;
-                specialList.push(`${name} (+${formatMoney(val)}/mês)`);
+                specialM += val;
+                specialList.push(`${name} (+${formatMoney(val)})`);
             } else {
-                specialInstal += val;
-                specialList.push(`${name} (+${formatMoney(val)} One-off)`);
+                specialI += val;
+                specialList.push(`${name} (+${formatMoney(val)})`);
             }
         }
     });
 
-    // 4. Consolidação Final
-    const totalMensal = (mensal * fator) + extraDatacenter + specialMensal;
-    const totalInstalacao = instalacao + custoRural + specialInstal;
+    // --- CÁLCULO FINAL ---
+    const finalM_Clean = (mensalObj.c * fator) + extraData + specialM;
+    const finalM_Full = (mensalObj.f * fator) + extraData + specialM;
 
-    // Atualiza UI
-    document.getElementById('resMensal').innerText = formatMoney(totalMensal);
-    document.getElementById('resInstalacao').innerText = formatMoney(totalInstalacao);
+    const finalI_Clean = instalObj.c + custoRural + specialI;
+    const finalI_Full = instalObj.f + custoRural + specialI;
 
-    generateEmail(op, prod, speed, uf, dur, totalMensal, totalInstalacao, detalhes, specialList);
+    // --- EXIBIÇÃO ---
+    const lblMensal = document.getElementById('resMensal');
+    const lblInstal = document.getElementById('resInstalacao');
+    const obsMensal = document.getElementById('resMensalObs');
+    const obsInstal = document.getElementById('resInstalacaoObs');
+
+    if (obsMensal) obsMensal.innerText = "";
+    if (obsInstal) obsInstal.innerText = "";
+
+    if (impostoMode === 'sem') {
+        lblMensal.innerText = formatMoney(finalM_Clean);
+        lblInstal.innerText = formatMoney(finalI_Clean);
+        if (obsMensal) obsMensal.innerText = "Valor SEM impostos";
+        if (obsInstal) obsInstal.innerText = "Valor SEM impostos";
+    } else if (impostoMode === 'ambos') {
+        lblMensal.innerText = formatMoney(finalM_Full);
+        lblInstal.innerText = formatMoney(finalI_Full);
+        if (obsMensal) obsMensal.innerText = `S/ Impostos: ${formatMoney(finalM_Clean)}`;
+        if (obsInstal) obsInstal.innerText = `S/ Impostos: ${formatMoney(finalI_Clean)}`;
+    } else {
+        // Padrão (Com Impostos)
+        lblMensal.innerText = formatMoney(finalM_Full);
+        lblInstal.innerText = formatMoney(finalI_Full);
+    }
+
+    generateEmail(op, prod, speed, uf, dur, finalM_Full, finalI_Full, finalM_Clean, finalI_Clean, detalhes, specialList, impostoMode);
 }
 
 function formatMoney(v) {
-    if (!v) return "R$ 0,00";
+    if (v === undefined || v === null || isNaN(v)) return "R$ 0,00";
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function generateEmail(op, prod, speed, uf, dur, valM, valI, fatores, specials) {
+function generateEmail(op, prod, speed, uf, dur, mM, mI, cM, cI, fatores, specials, mode) {
     if (!op || !speed) {
         document.getElementById('emailTemplate').value = "";
         return;
@@ -246,6 +262,22 @@ function generateEmail(op, prod, speed, uf, dur, valM, valI, fatores, specials) 
 
     const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
     const combinedNotes = [...fatores, ...specials].join(', ') || "Padrão";
+
+    let linhasFinanceiras = "";
+
+    if (mode === 'sem') {
+        linhasFinanceiras = `
+💰 MENSALIDADE: ${formatMoney(cM)} (S/ Impostos)
+🛠️ INSTALAÇÃO: ${formatMoney(cI)} (S/ Impostos)`;
+    } else if (mode === 'ambos') {
+        linhasFinanceiras = `
+💰 MENSALIDADE: ${formatMoney(mM)} (C/ Impostos) | ${formatMoney(cM)} (S/ Impostos)
+🛠️ INSTALAÇÃO: ${formatMoney(mI)} (C/ Impostos) | ${formatMoney(cI)} (S/ Impostos)`;
+    } else {
+        linhasFinanceiras = `
+💰 MENSALIDADE: ${formatMoney(mM)} (C/ Impostos)
+🛠️ INSTALAÇÃO: ${formatMoney(mI)} (C/ Impostos)`;
+    }
 
     const txt = `COTAÇÃO COMERCIAL | SITELBRA WHOLESALE
 ----------------------------------------------
@@ -257,11 +289,8 @@ PRAZO: ${dur} Meses
 ADICIONAIS / ESPECIFICAÇÕES:
 ${combinedNotes}
 
+----------------------------------------------${linhasFinanceiras}
 ----------------------------------------------
-💰 MENSALIDADE TOTAL: ${formatMoney(valM)}
-🛠️ INSTALAÇÃO TOTAL: ${formatMoney(valI)}
-----------------------------------------------
-* Valores com impostos inclusos.
 * Validade: 15 dias.`;
 
     document.getElementById('emailTemplate').value = txt;
