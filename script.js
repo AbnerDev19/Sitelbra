@@ -1,14 +1,15 @@
 // script.js
-// ATUALIZADO EM: 27/01/2026 - Novo Template de E-mail (Valid. 30 dias / S/ Impostos)
+// ATUALIZADO EM: 27/01/2026 - Correção da Inicialização do Grid Visual
 
 document.addEventListener('DOMContentLoaded', () => {
     // Data
     const dateEl = document.getElementById('currentDate');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('pt-BR');
 
-    // Inicialização
+    // --- INICIALIZAÇÃO CORRIGIDA ---
     populateDropdowns();
     renderSpecials();
+    renderVisualUF(); // <--- ESTA CHAMADA FALTAVA PARA EXIBIR OS QUADRADOS
 
     // Listeners Globais
     document.body.addEventListener('change', calculate);
@@ -20,7 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const selImposto = document.getElementById('selImpostoMode');
     if (selImposto) selImposto.addEventListener('change', calculate);
 
-    document.getElementById('btnCopy').addEventListener('click', copyEmail);
+    const btnCopy = document.getElementById('btnCopy');
+    if (btnCopy) btnCopy.addEventListener('click', copyEmail);
 
     // Toggle Rural
     const checkRural = document.getElementById('checkRural');
@@ -98,6 +100,53 @@ function fillSelect(id, values) {
     if (values.includes(current)) sel.value = current;
 }
 
+// --- NOVO: LÓGICA DO GRID VISUAL DE UFS ---
+function renderVisualUF() {
+    const container = document.getElementById('visualUFGrid');
+    if (!container || !window.UF_GROUPS) return;
+
+    container.innerHTML = '';
+
+    // Pega as UFs e ordena alfabeticamente
+    const ufs = Object.keys(window.UF_GROUPS).sort();
+
+    ufs.forEach(uf => {
+        const group = window.UF_GROUPS[uf];
+
+        const btn = document.createElement('div');
+        btn.className = `uf-square grp${group}`;
+        btn.textContent = uf;
+        btn.dataset.uf = uf;
+
+        // Evento de Clique
+        btn.addEventListener('click', () => {
+            selectVisualUF(uf);
+        });
+
+        container.appendChild(btn);
+    });
+}
+
+function selectVisualUF(uf) {
+    // 1. Atualiza o Select escondido (se existir) e a variável lógica
+    const selUF = document.getElementById('selUF');
+    if (selUF) {
+        selUF.value = uf;
+        // Dispara o evento de mudança para rodar o updateSpeeds/calculate
+        const event = new Event('change');
+        selUF.dispatchEvent(event);
+    }
+
+    // 2. Atualiza visualmente os quadradinhos
+    document.querySelectorAll('.uf-square').forEach(sq => {
+        if (sq.dataset.uf === uf) {
+            sq.classList.add('active');
+        } else {
+            sq.classList.remove('active');
+        }
+    });
+}
+
 function updateSpeeds() {
     const op = document.getElementById('selOperadora').value;
     const prod = document.getElementById('selProduto').value;
@@ -106,6 +155,8 @@ function updateSpeeds() {
     const selSpeed = document.getElementById('selVelocidade');
 
     if (!selSpeed) return;
+
+    // Reseta o select de velocidade se algo mudar
     selSpeed.innerHTML = '<option value="">Selecione...</option>';
     selSpeed.disabled = true;
 
@@ -191,26 +242,21 @@ function calculate() {
     // Projetos Especiais
     let specialM = 0;
     let specialI = 0;
-    const specialList = [];
     const checkboxes = document.querySelectorAll('input[id^="sp_"]');
     checkboxes.forEach(chk => {
         if (chk.checked) {
             let val = parseFloat(chk.dataset.price);
-            const name = chk.dataset.name;
-            const type = chk.dataset.type;
             const hasInput = chk.dataset.hasInput === 'true';
 
             if (hasInput) {
-                const inputVal = document.getElementById(`val_${chk.id.replace('sp_','')}`);
+                const inputVal = document.getElementById(`val_${chk.id.replace('sp_', '')}`);
                 if (inputVal) val = parseFloat(inputVal.value) || 0;
             }
 
-            if (type === 'mensal') {
+            if (chk.dataset.type === 'mensal') {
                 specialM += val;
-                specialList.push(`${name} (+${formatMoney(val)})`);
             } else {
                 specialI += val;
-                specialList.push(`${name} (+${formatMoney(val)})`);
             }
         }
     });
@@ -222,7 +268,7 @@ function calculate() {
     const finalI_Clean = instalObj.c + custoRural + specialI;
     const finalI_Full = instalObj.f + custoRural + specialI;
 
-    // --- EXIBIÇÃO NOS CARDS (Mantém a lógica visual selecionada) ---
+    // --- EXIBIÇÃO NOS CARDS ---
     const lblMensal = document.getElementById('resMensal');
     const lblInstal = document.getElementById('resInstalacao');
     const obsMensal = document.getElementById('resMensalObs');
@@ -242,12 +288,10 @@ function calculate() {
         if (obsMensal) obsMensal.innerText = `S/ Impostos: ${formatMoney(finalM_Clean)}`;
         if (obsInstal) obsInstal.innerText = `S/ Impostos: ${formatMoney(finalI_Clean)}`;
     } else {
-        // Padrão (Com Impostos)
         lblMensal.innerText = formatMoney(finalM_Full);
         lblInstal.innerText = formatMoney(finalI_Full);
     }
 
-    // Gera o email com o NOVO FORMATO (Sempre usando valores CLEAN)
     generateEmail(op, prod, speed, uf, dur, finalM_Clean, finalI_Clean);
 }
 
@@ -256,7 +300,7 @@ function formatMoney(v) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// --- GERADOR DE EMAIL (NOVO FORMATO) ---
+// --- GERADOR DE EMAIL ---
 function generateEmail(op, prod, speed, uf, dur, cM, cI) {
     if (!op || !speed) {
         document.getElementById('emailTemplate').value = "";
@@ -264,8 +308,6 @@ function generateEmail(op, prod, speed, uf, dur, cM, cI) {
     }
 
     const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
-    
-    // Monta a string do produto
     const produtoCompleto = `${op} ${prod} ${sLabel} (${uf})`;
 
     const txt = `Olá, tudo bem?

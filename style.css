@@ -330,3 +330,107 @@ textarea:focus {
     border-color: var(--accent);
     background: #fff;
 }
+
+/* Novo Seletor de UF Central */
+/* ... (estilos anteriores mantidos até a seção split-layout) ... */
+
+/* --- NOVO LAYOUT DIVIDIDO --- */
+.split-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 40px;
+    height: 100%;
+    align-items: start;
+}
+
+/* Área da UF (Esquerda) */
+.uf-area {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid var(--line-color);
+    border-radius: 12px;
+    position: sticky;
+    top: 0;
+    /* Garante que não colapse se vazio */
+    min-height: 300px; 
+}
+
+.uf-grid-wrapper {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.uf-square {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.uf-square:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    filter: brightness(1.1);
+}
+
+.uf-square.active {
+    border-color: #333;
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+}
+
+/* Área de Trabalho (Direita) */
+.work-area {
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Previne overflow */
+}
+
+/* Cores por Grupo */
+.uf-square.grp1 { background-color: #009688; }
+.uf-square.grp2 { background-color: #66BB6A; }
+/* Cor Amarela mais escura conforme solicitação prévia */
+.uf-square.grp3 { background-color: #FBC02D; color: #333; }
+.uf-square.grp4 { background-color: #EF5350; }
+
+/* Legenda */
+.uf-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.legend-item { display: flex; align-items: center; gap: 5px; }
+
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dot.grp1 { background: #009688; }
+.dot.grp2 { background: #66BB6A; }
+.dot.grp3 { background: #FBC02D; }
+.dot.grp4 { background: #EF5350; }
+
+/* Responsividade */
+@media (max-width: 1100px) {
+    .split-layout {
+        grid-template-columns: 1fr;
+    }
+    .uf-area {
+        position: static;
+        margin-bottom: 20px;
+    }
+    .uf-grid-wrapper {
+        grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    }
+}

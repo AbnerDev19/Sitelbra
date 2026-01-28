@@ -44,18 +44,16 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>UF</label>
-                        <div class="select-wrapper">
-                            <select id="selUF"><option value="">...</option></select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Velocidade</label>
-                        <div class="select-wrapper">
-                            <select id="selVelocidade" disabled><option value="">Selecione UF...</option></select>
-                        </div>
+                
+                <div class="form-group" style="display:none;">
+                    <label>UF (Sistema)</label>
+                    <select id="selUF"><option value="">...</option></select>
+                </div>
+
+                <div class="form-group">
+                    <label>Velocidade</label>
+                    <div class="select-wrapper">
+                        <select id="selVelocidade" disabled><option value="">Selecione UF ao lado...</option></select>
                     </div>
                 </div>
 
@@ -78,46 +76,70 @@
                     <label class="toggle-item"><input type="checkbox" id="checkIndustria"><span class="toggle-label">Indústria/Galpão (x1.4)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkDatacenter"><span class="toggle-label">Datacenter (+ Cross)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkRural"><span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra Dedicada</span></label>
+                    
+                    <div id="ruralOptions" class="hidden" style="margin-left: 24px; margin-top: 5px;">
+                        <input type="number" id="inputDistancia" placeholder="Distância (metros)" class="input-text" style="font-size: 0.8rem;">
+                    </div>
                 </div>
 
-        </aside>
-        <main class="main-content">
-            <header>
-                <h1>Cotação Comercial</h1>
-                <div class="date-badge" id="currentDate">--/--/----</div>
-            </header>
-            <div class="results-grid">
-                <div class="result-card primary">
-                    <span class="result-label">MENSALIDADE TOTAL</span>
-                    <div class="result-value" id="resMensal">R$ 0,00</div>
-                    <small id="resMensalObs" style="color: #666; font-size: 0.8rem;"></small>
-                </div>
-                <div class="result-card secondary">
-                    <span class="result-label">INSTALAÇÃO TOTAL</span>
-                    <div class="result-value" id="resInstalacao">R$ 0,00</div>
-                    <small id="resInstalacaoObs" style="color: #666; font-size: 0.8rem;"></small>
-                </div>
+                <div class="divider"></div>
+                <div class="section-title">PROJETOS ESPECIAIS</div>
+                <div id="specialsContainer"></div>
             </div>
-            <div class="email-container">
-                <div class="section-header">
-                    <h3>Texto para Proposta</h3>
-                    <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span> Copiar</button>
-                </div>
-                <textarea id="emailTemplate" readonly placeholder="Preencha os dados na lateral para gerar a cotação..."></textarea>
+        </aside>
+
+        <main class="main-content">
+            <div class="split-layout">
+                <section class="uf-area">
+                    <div class="section-title" style="margin-top:0;">SELECIONE O ESTADO</div>
+                    <div id="visualUFGrid" class="uf-grid-wrapper">
+                        </div>
+                    
+                    <div class="uf-legend">
+                        <div class="legend-item"><span class="dot grp1"></span> G1 (Geral)</div>
+                        <div class="legend-item"><span class="dot grp2"></span> G2 (Sul/Sudeste)</div>
+                        <div class="legend-item"><span class="dot grp3"></span> G3 (Norte)</div>
+                        <div class="legend-item"><span class="dot grp4"></span> G4 (Críticos)</div>
+                    </div>
+                </section>
+
+                <section class="work-area">
+                    <header>
+                        <h1>Cotação Comercial</h1>
+                        <div class="date-badge" id="currentDate">--/--/----</div>
+                    </header>
+                    <div class="results-grid">
+                        <div class="result-card primary">
+                            <span class="result-label">MENSALIDADE TOTAL</span>
+                            <div class="result-value" id="resMensal">R$ 0,00</div>
+                            <small id="resMensalObs" style="color: #666; font-size: 0.8rem;"></small>
+                        </div>
+                        <div class="result-card secondary">
+                            <span class="result-label">INSTALAÇÃO TOTAL</span>
+                            <div class="result-value" id="resInstalacao">R$ 0,00</div>
+                            <small id="resInstalacaoObs" style="color: #666; font-size: 0.8rem;"></small>
+                        </div>
+                    </div>
+                    <div class="email-container">
+                        <div class="section-header">
+                            <h3>Texto para Proposta</h3>
+                            <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span> Copiar</button>
+                        </div>
+                        <textarea id="emailTemplate" readonly placeholder="Selecione um Estado ao lado para iniciar..."></textarea>
+                    </div>
+                </section>
             </div>
         </main>
-        </div>
-        <script src="lpu_config.js"></script>
+    </div>
 
-        <script src="lpu_vivo.js"></script>
-        <script src="lpu_claro.js"></script>
-        <script src="lpu_cirion.js"></script>
-        <script src="lpu_oi.js"></script>
-        <script src="lpu_geral.js"></script>
-
-        <script src="specials.js"></script>
-        <script src="script.js"></script>
-</body>
+    <script src="lpu_config.js"></script>
+    <script src="lpu_vivo.js"></script>
+    <script src="lpu_claro.js"></script>
+    <script src="lpu_cirion.js"></script>
+    <script src="lpu_oi.js"></script>
+    <script src="lpu_geral.js"></script>
+    <script src="specials.js"></script>
+    <script src="script.js"></script>
 </body>
 
 </html>
