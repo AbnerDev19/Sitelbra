@@ -1,3 +1,6 @@
+// script.js
+// ATUALIZADO EM: 27/01/2026 - Novo Template de E-mail (Valid. 30 dias / S/ Impostos)
+
 document.addEventListener('DOMContentLoaded', () => {
     // Data
     const dateEl = document.getElementById('currentDate');
@@ -31,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- RENDERIZAÇÃO DE ESPECIAIS (Mantida) ---
+// --- RENDERIZAÇÃO DE ESPECIAIS ---
 function renderSpecials() {
     const container = document.getElementById('specialsContainer');
     if (!container || typeof window.SPECIALS_DB === 'undefined') return;
@@ -123,7 +126,7 @@ function updateSpeeds() {
     calculate();
 }
 
-// --- CÁLCULO CORE (ATUALIZADO) ---
+// --- CÁLCULO CORE ---
 
 function calculate() {
     // Inputs
@@ -143,12 +146,10 @@ function calculate() {
             i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed
         );
         if (item && item.m) {
-            // Verifica se o dado veio no formato novo {c,f} ou antigo (numero direto)
             if (typeof item.m === 'object') {
                 mensalObj = item.m;
                 instalObj = item.i;
             } else {
-                // Fallback para versões antigas do DB
                 mensalObj = { c: item.m, f: item.m };
                 instalObj = { c: item.i, f: item.i };
             }
@@ -221,7 +222,7 @@ function calculate() {
     const finalI_Clean = instalObj.c + custoRural + specialI;
     const finalI_Full = instalObj.f + custoRural + specialI;
 
-    // --- EXIBIÇÃO ---
+    // --- EXIBIÇÃO NOS CARDS (Mantém a lógica visual selecionada) ---
     const lblMensal = document.getElementById('resMensal');
     const lblInstal = document.getElementById('resInstalacao');
     const obsMensal = document.getElementById('resMensalObs');
@@ -246,7 +247,8 @@ function calculate() {
         lblInstal.innerText = formatMoney(finalI_Full);
     }
 
-    generateEmail(op, prod, speed, uf, dur, finalM_Full, finalI_Full, finalM_Clean, finalI_Clean, detalhes, specialList, impostoMode);
+    // Gera o email com o NOVO FORMATO (Sempre usando valores CLEAN)
+    generateEmail(op, prod, speed, uf, dur, finalM_Clean, finalI_Clean);
 }
 
 function formatMoney(v) {
@@ -254,44 +256,31 @@ function formatMoney(v) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function generateEmail(op, prod, speed, uf, dur, mM, mI, cM, cI, fatores, specials, mode) {
+// --- GERADOR DE EMAIL (NOVO FORMATO) ---
+function generateEmail(op, prod, speed, uf, dur, cM, cI) {
     if (!op || !speed) {
         document.getElementById('emailTemplate').value = "";
         return;
     }
 
     const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
-    const combinedNotes = [...fatores, ...specials].join(', ') || "Padrão";
+    
+    // Monta a string do produto
+    const produtoCompleto = `${op} ${prod} ${sLabel} (${uf})`;
 
-    let linhasFinanceiras = "";
+    const txt = `Olá, tudo bem?
 
-    if (mode === 'sem') {
-        linhasFinanceiras = `
-💰 MENSALIDADE: ${formatMoney(cM)} (S/ Impostos)
-🛠️ INSTALAÇÃO: ${formatMoney(cI)} (S/ Impostos)`;
-    } else if (mode === 'ambos') {
-        linhasFinanceiras = `
-💰 MENSALIDADE: ${formatMoney(mM)} (C/ Impostos) | ${formatMoney(cM)} (S/ Impostos)
-🛠️ INSTALAÇÃO: ${formatMoney(mI)} (C/ Impostos) | ${formatMoney(cI)} (S/ Impostos)`;
-    } else {
-        linhasFinanceiras = `
-💰 MENSALIDADE: ${formatMoney(mM)} (C/ Impostos)
-🛠️ INSTALAÇÃO: ${formatMoney(mI)} (C/ Impostos)`;
-    }
+Segue abaixo a cotação conforme solicitado. Nossa proposta possui validade de 30 dias.
 
-    const txt = `COTAÇÃO COMERCIAL | SITELBRA WHOLESALE
-----------------------------------------------
-PRODUTO: ${op} ${prod}
-LOCALIDADE: ${uf}
-VELOCIDADE: ${sLabel}
-PRAZO: ${dur} Meses
+Produto: ${produtoCompleto}
+Valor mensal s/impostos: ${formatMoney(cM)}
+Valor de instalação s/impostos: ${formatMoney(cI)}
+Prazo de instalação: 60 Dias
+Prazo de Contrato: ${dur} Meses
 
-ADICIONAIS / ESPECIFICAÇÕES:
-${combinedNotes}
+Ficamos à disposição para quaisquer dúvidas ou ajustes necessários.
 
-----------------------------------------------${linhasFinanceiras}
-----------------------------------------------
-* Validade: 15 dias.`;
+Atenciosamente,`;
 
     document.getElementById('emailTemplate').value = txt;
 }
