@@ -1,302 +1,111 @@
 // lpu_claro.js
-// BASEADO NOS ARQUIVOS CSV "claro.xlsx"
-// Destaques: DF separado no IP, RO caro no BDL e Instalação dinâmica por velocidade.
+// ATUALIZADO EM: 27/01/2026 - Matriz Real (Unificada Claro/Vivo)
+// Produtos: IP, L2 e BDL (12, 24, 36, 60 meses)
 
-const CLARO_DATA = {
-    // 1. PREÇOS BASE (Referência 12 Meses / Clean)
-    prices: {
-        // Referência IP: Grupo 2 (SP/Geral)
-        ip: {
-            4: 388.24,
-            5: 388.24,
-            10: 388.24,
-            20: 469.41,
-            30: 610.20,
-            40: 793.33,
-            50: 1031.38,
-            100: 1340.79,
-            200: 1609.03,
-            300: 1930.98,
-            400: 2317.26,
-            500: 2780.79,
-            1000: 4198.83
-        },
-        // Referência L2: Grupo 1 (SP/DF/Geral)
-        l2: {
-            4: 388.28,
-            5: 388.28,
-            10: 388.28,
-            20: 504.76,
-            30: 737.73,
-            40: 931.87,
-            50: 1164.83,
-            100: 1553.11,
-            200: 1747.25,
-            300: 1863.73,
-            400: 2252.01,
-            500: 2989.74,
-            1000: 4271.06
-        },
-        // Referência BDL: Grupo 2 (SP/Geral)
-        bdl: {
-            4: 286.26,
-            5: 286.26,
-            10: 286.26,
-            20: 286.26,
-            30: 286.26,
-            40: 286.26,
-            50: 286.26,
-            100: 286.26,
-            200: 286.26,
-            300: 360.54,
-            400: 396.59,
-            500: 436.25,
-            1000: 567.13
-        }
+const CLARO_RULES = {
+    taxMonthly: 1.336, // ~33.6%
+    taxInst: 1.166,    // ~16.6%
+
+    groups: {
+        // G1: Geral
+        "AL": 1, "BA": 1, "CE": 1, "DF": 1, "ES": 1, "GO": 1, "MA": 1, "MT": 1, 
+        "MS": 1, "MG": 1, "PB": 1, "PR": 1, "PE": 1, "PI": 1, "RN": 1, "RS": 1, 
+        "SC": 1, "SP": 1, "SE": 1,
+        // G2: PA, TO
+        "PA": 2, "TO": 2,
+        // G3: Norte
+        "AC": 3, "AP": 3, "AM": 3, "RO": 3,
+        // G4: RJ, RR (Crítico)
+        "RJ": 4, "RR": 4
     },
 
-    // 2. INSTALAÇÃO BASE (Por Velocidade - Referência SP/Geral)
-    // Extraído das colunas de Instalação do Grupo Base
-    inst_base: {
-        ip: {
-            4: 1500,
-            5: 1500,
-            10: 1500,
-            20: 1500,
-            30: 1950,
-            40: 2100,
-            50: 2100,
-            100: 2100,
-            200: 3000,
-            300: 3000,
-            400: 3450,
-            500: 3600,
-            1000: 6000
-        },
-        l2: {
-            4: 1500,
-            5: 1500,
-            10: 1500,
-            20: 1500,
-            30: 1950,
-            40: 2100,
-            50: 2100,
-            100: 2100,
-            200: 3000,
-            300: 3000,
-            400: 3450,
-            500: 3600,
-            1000: 6000
-        },
-        bdl: {
-            // BDL tem instalação fixa por GRUPO, não por velocidade (tratado nas REGRAS)
-            all: 550
-        }
+    // Decaimento calculado dos prints (Ex: IP 24m 248.75 / 298.50 = 0.833)
+    decay: {
+        ip: { 12: 1.00, 24: 0.8333, 36: 0.7916, 60: 0.7719 },
+        l2: { 12: 1.00, 24: 0.9523, 36: 0.9047, 60: 0.8595 },
+        bdl: { 12: 1.00, 24: 0.9524, 36: 0.9048 }
     }
 };
 
-const CLARO_RULES = {
-    taxFactor: 1.0379, // ~3.79%
+// --- MATRIZES BASE 12 MESES (CLEAN) ---
+// Formato: Velocidade: { g1: [Mensal, Inst], ... }
 
-    // Mapeamento de Estados por Grupo
-    groups: {
-        ip: {
-            // G1: DF (Mais barato que a base)
-            "DF": 1,
-            // G2: Geral (Base)
-            "AL": 2,
-            "BA": 2,
-            "CE": 2,
-            "ES": 2,
-            "GO": 2,
-            "MA": 2,
-            "MT": 2,
-            "MS": 2,
-            "MG": 2,
-            "PB": 2,
-            "PR": 2,
-            "PE": 2,
-            "PI": 2,
-            "RN": 2,
-            "RS": 2,
-            "SC": 2,
-            "SP": 2,
-            "SE": 2,
-            // G3: PA, TO
-            "PA": 3,
-            "TO": 3,
-            // G4: Norte
-            "AC": 4,
-            "AP": 4,
-            "AM": 4,
-            "RO": 4,
-            // G5: RJ, RR
-            "RJ": 5,
-            "RR": 5
-        },
-        l2: {
-            // G1: Geral + DF (DF paga igual SP no L2)
-            "AL": 1,
-            "BA": 1,
-            "CE": 1,
-            "DF": 1,
-            "ES": 1,
-            "GO": 1,
-            "MA": 1,
-            "MT": 1,
-            "MS": 1,
-            "MG": 1,
-            "PB": 1,
-            "PR": 1,
-            "PE": 1,
-            "PI": 1,
-            "RN": 1,
-            "RS": 1,
-            "SC": 1,
-            "SP": 1,
-            "SE": 1,
-            // G2: PA, TO
-            "PA": 2,
-            "TO": 2,
-            // G3: Norte
-            "AC": 3,
-            "AP": 3,
-            "AM": 3,
-            "RO": 3,
-            // G4: RJ, RR
-            "RJ": 4,
-            "RR": 4
-        },
-        bdl: {
-            // G1: DF
-            "DF": 1,
-            // G2: Geral
-            "AL": 2,
-            "BA": 2,
-            "CE": 2,
-            "ES": 2,
-            "GO": 2,
-            "MA": 2,
-            "MT": 2,
-            "MS": 2,
-            "MG": 2,
-            "PB": 2,
-            "PR": 2,
-            "PE": 2,
-            "PI": 2,
-            "RN": 2,
-            "RS": 2,
-            "SC": 2,
-            "SP": 2,
-            "SE": 2,
-            // G3: PA, TO
-            "PA": 3,
-            "TO": 3,
-            // G4: Norte (Sem RO)
-            "AC": 4,
-            "AP": 4,
-            "AM": 4,
-            // G5: RJ e RO (RO é mais caro no BDL Claro)
-            "RJ": 5,
-            "RO": 5,
-            // G6: RR
-            "RR": 6
-        }
-    },
+const CLARO_IP_MATRIX = {
+    4:    { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    5:    { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    10:   { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    20:   { g1: [381.30, 3450], g2: [410.70, 3960], g3: [664.02, 4620], g4: [712.80, 6957.50] },
+    30:   { g1: [495.65, 4485], g2: [533.87, 5148], g3: [863.16, 6006], g4: [926.57, 9044.75] },
+    40:   { g1: [672.70, 4830], g2: [725.44, 5544], g3: [1158.78, 6468], g4: [1252.54, 9740.50] },
+    50:   { g1: [915.51, 4830], g2: [988.47, 5544], g3: [1385.82, 6468], g4: [1697.67, 9740.50] },
+    100:  { g1: [1231.11, 4830], g2: [1330.37, 5544], g3: [1854.49, 6468], g4: [2276.27, 9740.50] },
+    200:  { g1: [1506.21, 5700], g2: [1615.97, 6840], g3: [2248.19, 7980], g4: [2761.37, 12017.50] },
+    300:  { g1: [1834.60, 5700], g2: [1955.54, 7524], g3: [2716.96, 8778], g4: [3338.69, 13219.25] },
+    400:  { g1: [2208.36, 6555], g2: [2374.28, 7866], g3: [3292.60, 9177], g4: [4048.65, 13820.13] },
+    500:  { g1: [2674.41, 6840], g2: [2878.37, 8208], g3: [3985.26, 9576], g4: [4903.08, 14421.00] },
+    1000: { g1: [4072.81, 10200], g2: [4387.71, 12240], g3: [6065.97, 14280], g4: [7466.82, 21505.00] }
+};
 
-    // Multiplicadores de Preço (Sobre a Base)
-    multipliers: {
-        ip: { 1: 0.916, 2: 1.00, 3: 1.083, 4: 1.65, 5: 1.833 },
-        l2: { 1: 1.000, 2: 1.083, 3: 1.65, 4: 1.833 },
-        bdl: { 1: 0.952, 2: 1.00, 3: 1.05, 4: 1.312, 5: 1.509, 6: 1.735 }
-    },
+const CLARO_L2_MATRIX = {
+    4:    { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    5:    { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    10:   { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    20:   { g1: [398.00, 3450], g2: [425.04, 3960], g3: [669.82, 4620], g4: [729.67, 6957.50] },
+    30:   { g1: [590.17, 4485], g2: [631.39, 5148], g3: [990.85, 6006], g4: [1081.98, 9044.75] },
+    40:   { g1: [758.19, 4830], g2: [812.80, 5544], g3: [1269.39, 6468], g4: [1390.02, 9740.50] },
+    50:   { g1: [966.11, 4830], g2: [1038.05, 5544], g3: [1612.46, 6468], g4: [1771.21, 9740.50] },
+    100:  { g1: [1312.65, 4830], g2: [1413.47, 5544], g3: [2184.25, 6468], g4: [2406.53, 9740.50] },
+    200:  { g1: [1480.67, 5700], g2: [1594.87, 6840], g3: [2462.80, 7980], g4: [2714.56, 12017.50] },
+    300:  { g1: [1584.63, 5700], g2: [1698.05, 7524], g3: [2623.31, 8778], g4: [2890.72, 13219.25] },
+    400:  { g1: [1919.36, 6555], g2: [2068.74, 7866], g3: [3189.58, 9177], g4: [3518.82, 13820.13] },
+    500:  { g1: [2573.84, 6840], g2: [2777.31, 8208], g3: [4270.47, 9576], g4: [4718.71, 14421.00] },
+    1000: { g1: [3689.42, 10200], g2: [3982.58, 12240], g3: [6118.17, 14280], g4: [6763.94, 21505.00] }
+};
 
-    // Instalação Fixa BDL por Grupo
-    bdlInstFixed: { 1: 550, 2: 550, 3: 750, 4: 750, 5: 850, 6: 850 },
-
-    decay: {
-        ip: {
-            12: 1.00,
-            24: 0.90, // 349.41/388.24
-            36: 0.85,
-            48: 0.803,
-            60: 0.758
-        },
-        l2: {
-            12: 1.00,
-            24: 0.90,
-            36: 0.85,
-            60: 0.81 // 314.51/388.28 (Aprox 19% desconto)
-        },
-        bdl: {
-            12: 1.00,
-            24: 0.952,
-            36: 0.907
-        }
-    }
+const CLARO_BDL_MATRIX = {
+    4:    { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    5:    { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    10:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    20:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    50:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    100:  { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    200:  { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    300:  { g1: [234.22, 1924.20], g2: [247.49, 2244.90], g3: [360.68, 2244.90], g4: [451.22, 2244.90] },
+    400:  { g1: [255.11, 1924.20], g2: [270.13, 2244.90], g3: [392.03, 2244.90], g4: [489.53, 2244.90] },
+    500:  { g1: [276.01, 1924.20], g2: [292.77, 2244.90], g3: [423.37, 2244.90], g4: [527.84, 2244.90] },
+    1000: { g1: [517.70, 1924.20], g2: [555.00, 2244.90], g3: [786.01, 2244.90], g4: [970.80, 2244.90] }
 };
 
 (function gerarClaro() {
     const allUfs = Object.keys(UF_GROUPS);
 
     allUfs.forEach(uf => {
+        let gId = CLARO_RULES.groups[uf] || 1;
+        const gKey = `g${gId}`;
+
         VELOCIDADES_DISPONIVEIS.forEach(v => {
+            
+            const processMatrix = (prodName, matrix, decayKey) => {
+                if (matrix[v] && matrix[v][gKey]) {
+                    const [baseMensal, baseInst] = matrix[v][gKey];
+                    // BDL não tem 60 meses
+                    const prazos = (decayKey === 'bdl') ? [12, 24, 36] : [12, 24, 36, 60];
 
-            // --- 1. IP DEDICADO ---
-            let gIp = CLARO_RULES.groups.ip[uf] || 2;
-            let mIp = CLARO_RULES.multipliers.ip[gIp];
-            let baseIp = CLARO_DATA.prices.ip[v] || CLARO_DATA.prices.ip[10];
-            let baseInstIp = CLARO_DATA.inst_base.ip[v] || CLARO_DATA.inst_base.ip[10];
+                    prazos.forEach(d => {
+                        const fator = CLARO_RULES.decay[decayKey][d] || 1.0;
+                        const mClean = baseMensal * fator;
+                        const mFull = mClean * CLARO_RULES.taxMonthly;
+                        const iClean = baseInst;
+                        const iFull = iClean * CLARO_RULES.taxInst;
 
-            if (baseIp) {
-                let cleanM = baseIp * mIp;
-                let cleanI = baseInstIp * mIp; // Multiplicador afeta instalação IP
+                        addEntry('Claro', prodName, uf, d, v, mClean, mFull, iClean, iFull);
+                    });
+                }
+            };
 
-                [12, 24, 36, 48, 60].forEach(d => {
-                    let fator = CLARO_RULES.decay.ip[d] || 1.0;
-                    addEntry('Claro', 'IP DEDICADO', uf, d, v,
-                        cleanM * fator, (cleanM * fator) * CLARO_RULES.taxFactor,
-                        cleanI, cleanI * CLARO_RULES.taxFactor
-                    );
-                });
-            }
-
-            // --- 2. L2 MPLS ---
-            let gL2 = CLARO_RULES.groups.l2[uf] || 1;
-            let mL2 = CLARO_RULES.multipliers.l2[gL2];
-            let baseL2 = CLARO_DATA.prices.l2[v] || CLARO_DATA.prices.l2[10];
-            let baseInstL2 = CLARO_DATA.inst_base.l2[v] || CLARO_DATA.inst_base.l2[10];
-
-            if (baseL2) {
-                let cleanM = baseL2 * mL2;
-                let cleanI = baseInstL2 * mL2;
-
-                [12, 24, 36, 60].forEach(d => {
-                    let fator = CLARO_RULES.decay.l2[d] || 1.0;
-                    addEntry('Claro', 'L2-MPLS', uf, d, v,
-                        cleanM * fator, (cleanM * fator) * CLARO_RULES.taxFactor,
-                        cleanI, cleanI * CLARO_RULES.taxFactor
-                    );
-                });
-            }
-
-            // --- 3. BANDA LARGA ---
-            let gBdl = CLARO_RULES.groups.bdl[uf] || 2;
-            let mBdl = CLARO_RULES.multipliers.bdl[gBdl];
-            let baseBdl = CLARO_DATA.prices.bdl[v] || CLARO_DATA.prices.bdl[10];
-
-            if (baseBdl) {
-                let cleanM = baseBdl * mBdl;
-                let cleanI = CLARO_RULES.bdlInstFixed[gBdl]; // Instalação fixa por grupo
-
-                [12, 24, 36].forEach(d => {
-                    let fator = CLARO_RULES.decay.bdl[d] || 1.0;
-                    addEntry('Claro', 'BANDA LARGA', uf, d, v,
-                        cleanM * fator, (cleanM * fator) * CLARO_RULES.taxFactor,
-                        cleanI, cleanI * CLARO_RULES.taxFactor
-                    );
-                });
-            }
+            processMatrix('IP DEDICADO', CLARO_IP_MATRIX, 'ip');
+            processMatrix('L2-MPLS', CLARO_L2_MATRIX, 'l2');
+            processMatrix('BANDA LARGA', CLARO_BDL_MATRIX, 'bdl');
         });
     });
     console.log("Ofertas Claro Carregadas.");

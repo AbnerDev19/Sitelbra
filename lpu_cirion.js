@@ -1,132 +1,99 @@
 // lpu_cirion.js
-// BASEADO NOS ARQUIVOS CSV "cirion.xlsx"
-// Destaques: Impostos diferentes para Mensal/Instal e Grupos com multiplicadores agressivos.
+// ATUALIZADO EM: 27/01/2026 - Prints Completos (L2, IP e Banda Larga)
 
 const CIRION_DATA = {
-    // 1. PREÇOS BASE (Referência: GRUPO 1 - SP/DF/MG/etc - 12 Meses/Clean)
-    prices: {
-        ip: {
-            4: 298.50,
-            5: 298.50,
-            10: 298.50,
-            20: 381.30,
-            30: 495.65,
-            40: 672.70,
-            50: 915.50,
-            100: 1231.10,
-            200: 1506.20,
-            300: 1834.60,
-            400: 2208.35,
-            500: 2674.40,
-            1000: 4072.80
-        },
-        l2: {
-            4: 294.04,
-            5: 294.04,
-            10: 294.04,
-            20: 398.00,
-            30: 590.17,
-            40: 758.19,
-            50: 966.11,
-            100: 1312.65,
-            200: 1480.67,
-            300: 1584.63,
-            400: 1919.36,
-            500: 2573.84,
-            1000: 3689.42
-        },
-        bdl: {
-            4: 171.53,
-            5: 171.53,
-            10: 171.53,
-            20: 171.53,
-            30: 171.53,
-            40: 171.53,
-            50: 171.53,
-            100: 171.53,
-            200: 171.53,
-            300: 234.21,
-            400: 255.11,
-            500: 276.00,
-            1000: 517.70
-        }
-    },
-
-    // 2. INSTALAÇÃO BASE POR GRUPO (Valores Clean extraídos do CSV)
-    // A Cirion varia muito a instalação dependendo da região.
-    inst_by_group: {
-        ip: { 1: 3450, 2: 3960, 3: 4200, 4: 4830 },
-        l2: { 1: 3450, 2: 3960, 3: 4200, 4: 4830 }, // G4 no L2 salta para 4830
-        bdl: { 1: 1924, 2: 2244, 3: 2244, 4: 2500 }
-    }
+    // Dados agora são totalmente controlados pelas Matrizes abaixo.
+    prices: {},
+    inst_by_group: {}
 };
 
 const CIRION_RULES = {
-    // Fatores de Imposto (Calculados das razões C/Imp vs S/Imp do CSV)
-    taxMonthly: 1.336, // ~33.6% (Ex: 398.80 / 298.50)
-    taxInst: 1.166, // ~16.6% (Ex: 4023.32 / 3450.00) - Diferente da mensalidade!
+    // Impostos calculados dos prints (Ex: G1 Mensal 229.17 / 171.53 = 1.336)
+    taxMonthly: 1.336,
+    taxInst: 1.166,
 
-    // Mapeamento de Estados por Grupo
+    // Mapeamento de Estados por Grupo (Conforme Cabeçalhos dos Prints)
     groups: {
-        // G1: Base (SP, DF, MG, NE, Sul...)
-        "AL": 1,
-        "BA": 1,
-        "CE": 1,
-        "DF": 1,
-        "ES": 1,
-        "GO": 1,
-        "MA": 1,
-        "MT": 1,
-        "MS": 1,
-        "MG": 1,
-        "PB": 1,
-        "PR": 1,
-        "PE": 1,
-        "PI": 1,
-        "RN": 1,
-        "RS": 1,
-        "SC": 1,
-        "SP": 1,
-        "SE": 1,
-        // G2: PA, TO
-        "PA": 2,
-        "TO": 2,
-        // G3: Norte (AC, AP, AM, RO)
-        "AC": 3,
-        "AP": 3,
-        "AM": 3,
-        "RO": 3,
-        // G4: Zonas Críticas (RJ, RR)
-        "RJ": 4,
-        "RR": 4
+        // GRUPO 1: AL BA CE DF ES GO MA MT MS MG PB PR PE PI RN RS SC SP SE
+        "AL": 1, "BA": 1, "CE": 1, "DF": 1, "ES": 1, "GO": 1, "MA": 1, "MT": 1,
+        "MS": 1, "MG": 1, "PB": 1, "PR": 1, "PE": 1, "PI": 1, "RN": 1, "RS": 1,
+        "SC": 1, "SP": 1, "SE": 1,
+
+        // GRUPO 2: PA TO
+        "PA": 2, "TO": 2,
+
+        // GRUPO 3: AC AP AM RO
+        "AC": 3, "AP": 3, "AM": 3, "RO": 3,
+
+        // GRUPO 4: RJ RR
+        "RJ": 4, "RR": 4
     },
 
-    // Multiplicadores de Mensalidade por Grupo (Baseado em 4Mbps G1)
-    multipliers: {
-        ip: { 1: 1.00, 2: 1.075, 3: 1.766, 4: 23.3 }, // G4 IP é muito caro (Baseado em histórico/lógica de zona crítica)
-        l2: { 1: 1.00, 2: 1.075, 3: 1.690, 4: 7.19 }, // G4 L2 (2115.33 / 294.04 = ~7.2x)
-        bdl: { 1: 1.00, 2: 1.047, 3: 1.550, 4: 1.96 }
-    },
-
+    // Decaimento de Prazo (Baseado na comparação dos valores absolutos dos prints)
     decay: {
-        ip: {
-            12: 1.00,
-            24: 0.833, // Cai muito em 24m (248.75/298.50)
-            36: 0.791,
-            60: 0.772
-        },
-        l2: {
-            12: 1.00,
-            24: 0.952, // Cai pouco (280.04/294.04)
-            36: 0.904,
-            60: 0.860
-        },
-        bdl: {
-            12: 1.00,
-            24: 0.952, // Igual L2
-            36: 0.904
-        }
+        ip: { 12: 1.00, 24: 0.8333, 36: 0.7916, 60: 0.7719 },
+        l2: { 12: 1.00, 24: 0.9520, 36: 0.9040, 60: 0.8600 },
+        // BDL: 24m(163.37)/12m(171.53)=0.952 | 36m(155.20)/12m(171.53)=0.9048
+        bdl: { 12: 1.00, 24: 0.9524, 36: 0.9048 }
     }
+};
+
+// ==============================================================================
+// MATRIZES DE DADOS (BASE 12 MESES - CLEAN / SEM IMPOSTOS)
+// Formato: Velocidade: { g1: [Mensal, Inst], g2: [Mensal, Inst], ... }
+// ==============================================================================
+
+// --- 1. IP DEDICADO ---
+const IP_MATRIX_12M = {
+    4: { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [487.73, 6050.00] },
+    5: { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [487.73, 6050.00] },
+    10: { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [487.73, 6050.00] },
+    20: { g1: [381.30, 3450], g2: [410.70, 3960], g3: [664.02, 4620], g4: [660.17, 6050.00] },
+    30: { g1: [495.65, 4485], g2: [533.87, 5148], g3: [863.16, 6006], g4: [978.94, 7865.00] },
+    40: { g1: [672.70, 4830], g2: [725.44, 5544], g3: [1158.78, 6468], g4: [1257.64, 8470.00] },
+    50: { g1: [915.51, 4830], g2: [988.47, 5544], g3: [1385.82, 6468], g4: [1602.52, 8470.00] },
+    100: { g1: [1231.11, 4830], g2: [1330.37, 5544], g3: [1854.49, 6468], g4: [2177.34, 8470.00] },
+    200: { g1: [1506.21, 5700], g2: [1615.97, 6840], g3: [2248.19, 7980], g4: [2456.03, 10450.00] },
+    300: { g1: [1834.60, 5700], g2: [1955.54, 7524], g3: [2716.96, 8778], g4: [2615.42, 11495.00] },
+    400: { g1: [2208.36, 6555], g2: [2374.28, 7866], g3: [3292.60, 9177], g4: [3183.70, 12017.50] },
+    500: { g1: [2674.41, 6840], g2: [2878.37, 8208], g3: [3985.26, 9576], g4: [4269.31, 12540.00] },
+    1000: { g1: [4072.81, 10200], g2: [4387.71, 12240], g3: [6065.97, 14280], g4: [6119.75, 18700.00] }
+};
+
+// --- 2. L2-MPLS ---
+const L2_MATRIX_12M = {
+    4: { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    5: { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    10: { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    20: { g1: [398.00, 3450], g2: [425.04, 3960], g3: [669.82, 4620], g4: [729.67, 6957.50] },
+    30: { g1: [590.17, 4485], g2: [631.39, 5148], g3: [990.85, 6006], g4: [1081.98, 9044.75] },
+    40: { g1: [758.19, 4830], g2: [812.80, 5544], g3: [1269.39, 6468], g4: [1390.02, 9740.50] },
+    50: { g1: [966.11, 4830], g2: [1038.05, 5544], g3: [1612.46, 6468], g4: [1771.21, 9740.50] },
+    100: { g1: [1312.65, 4830], g2: [1413.47, 5544], g3: [2184.25, 6468], g4: [2406.53, 9740.50] },
+    200: { g1: [1480.67, 5700], g2: [1594.87, 6840], g3: [2462.80, 7980], g4: [2714.56, 12017.50] },
+    300: { g1: [1584.63, 5700], g2: [1698.05, 7524], g3: [2623.31, 8778], g4: [2890.72, 13219.25] },
+    400: { g1: [1919.36, 6555], g2: [2068.74, 7866], g3: [3189.58, 9177], g4: [3518.82, 13820.13] },
+    500: { g1: [2573.84, 6840], g2: [2777.31, 8208], g3: [4270.47, 9576], g4: [4718.71, 14421.00] },
+    1000: { g1: [3689.42, 10200], g2: [3982.58, 12240], g3: [6118.17, 14280], g4: [6763.94, 21505.00] }
+};
+
+// --- 3. BANDA LARGA ---
+const BDL_MATRIX_12M = {
+    // 4 a 200M têm o mesmo preço base
+    4: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    5: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    10: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    20: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    30: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    40: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    50: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    100: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    200: { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    // A partir de 300M o preço muda
+    300: { g1: [234.22, 1924.20], g2: [247.49, 2244.90], g3: [360.68, 2244.90], g4: [451.22, 2244.90] },
+    400: { g1: [255.11, 1924.20], g2: [270.13, 2244.90], g3: [392.03, 2244.90], g4: [489.53, 2244.90] },
+    500: { g1: [276.01, 1924.20], g2: [292.77, 2244.90], g3: [423.37, 2244.90], g4: [527.84, 2244.90] },
+    1000: { g1: [517.70, 1924.20], g2: [555.00, 2244.90], g3: [786.01, 2244.90], g4: [970.80, 2244.90] }
 };
 
 (function gerarCirion() {
@@ -134,34 +101,27 @@ const CIRION_RULES = {
 
     allUfs.forEach(uf => {
         let gId = CIRION_RULES.groups[uf] || 1;
+        const gKey = `g${gId}`;
 
         VELOCIDADES_DISPONIVEIS.forEach(v => {
-            const processProduct = (prodName, tableKey, decayKey) => {
-                let basePrice = CIRION_DATA.prices[tableKey][v] || CIRION_DATA.prices[tableKey][10];
-                let multi = CIRION_RULES.multipliers[tableKey][gId];
 
-                // Instalação Base do Grupo
-                let instClean = CIRION_DATA.inst_by_group[tableKey][gId] || CIRION_DATA.inst_by_group[tableKey][1];
+            // --- FUNÇÃO DE PROCESSAMENTO COM MATRIZ ---
+            const processMatrix = (prodName, matrix, decayKey) => {
+                if (matrix[v] && matrix[v][gKey]) {
+                    const [baseMensal, baseInst] = matrix[v][gKey];
 
-                // Ajuste de Instalação para altas velocidades (Acima de 200Mb costuma ser mais caro)
-                // O CSV mostrou base 4Mb, mas mantemos lógica conservadora para altas capacidades se necessário.
-                // Aqui usaremos o valor do grupo extraído.
-
-                if (basePrice) {
-                    const cleanM = basePrice * multi;
-
-                    // Prazos disponíveis (Cirion geralmente pula 48 meses nas planilhas)
+                    // Define prazos: BDL só vai até 36m, outros até 60m
                     const prazos = (decayKey === 'bdl') ? [12, 24, 36] : [12, 24, 36, 60];
 
                     prazos.forEach(d => {
                         const fator = CIRION_RULES.decay[decayKey][d] || 1.0;
 
-                        // Cálculo Mensalidade (Taxa ~33.6%)
-                        const mClean = cleanM * fator;
+                        // Mensalidade (Base 12m * Fator de Decaimento)
+                        const mClean = baseMensal * fator;
                         const mFull = mClean * CIRION_RULES.taxMonthly;
 
-                        // Cálculo Instalação (Taxa ~16.6% - Diferente da mensalidade!)
-                        const iClean = instClean;
+                        // Instalação (Base 12m Fixa)
+                        const iClean = baseInst;
                         const iFull = iClean * CIRION_RULES.taxInst;
 
                         addEntry('Cirion', prodName, uf, d, v, mClean, mFull, iClean, iFull);
@@ -169,10 +129,15 @@ const CIRION_RULES = {
                 }
             };
 
-            processProduct('IP DEDICADO', 'ip', 'ip');
-            processProduct('L2-MPLS', 'l2', 'l2');
-            processProduct('BANDA LARGA', 'bdl', 'bdl');
+            // 1. IP DEDICADO
+            processMatrix('IP DEDICADO', IP_MATRIX_12M, 'ip');
+
+            // 2. L2-MPLS
+            processMatrix('L2-MPLS', L2_MATRIX_12M, 'l2');
+
+            // 3. BANDA LARGA
+            processMatrix('BANDA LARGA', BDL_MATRIX_12M, 'bdl');
         });
     });
-    console.log("Ofertas Cirion Carregadas (Impostos e Grupos Ajustados).");
+    console.log("Ofertas Cirion Carregadas (L2, IP e BDL com Matrizes Reais).");
 })();

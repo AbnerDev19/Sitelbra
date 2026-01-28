@@ -1,48 +1,106 @@
-// lpu_vivo.js - BASEADA NO CSV "vivo.xlsx"
-
-const VIVO_DATA = {
-    prices: {
-        // Vivo IP e L2 usam a mesma base da Claro/Oi G2
-        ip: { 4: 388.24, 10: 388.24, 20: 469.41, 50: 1031.38, 100: 1340.79, 200: 1609.03, 500: 2780.79, 1000: 4198.83 },
-        l2: { 4: 420.63, 10: 420.63, 20: 546.82, 50: 1261.90, 100: 1682.54, 200: 1892.85, 500: 3238.88, 1000: 4626.98 },
-        // Vivo BDL tem valores próprios no CSV
-        bdl: { 4: 284.11, 10: 284.11, 20: 284.11, 50: 284.11, 100: 284.11, 200: 284.11, 300: 301.10, 500: 415.48, 1000: 540.12 }
-    },
-    inst: { ip: 1749, l2: 1800, bdl: 641 }
-};
+// lpu_vivo.js
+// ATUALIZADO EM: 27/01/2026 - Matriz Real (Unificada Claro/Vivo)
+// Produtos: IP, L2 e BDL (12, 24, 36, 60 meses)
 
 const VIVO_RULES = {
-    taxFactor: 1.0379,
-    groups: CLARO_RULES.groups, // Usa mesmo agrupamento geográfico
-    groupMultipliers: CLARO_RULES.groupMultipliers, // Usa mesmos multiplicadores
+    taxMonthly: 1.336, 
+    taxInst: 1.166,    
+
+    groups: {
+        "AL": 1, "BA": 1, "CE": 1, "DF": 1, "ES": 1, "GO": 1, "MA": 1, "MT": 1, 
+        "MS": 1, "MG": 1, "PB": 1, "PR": 1, "PE": 1, "PI": 1, "RN": 1, "RS": 1, 
+        "SC": 1, "SP": 1, "SE": 1,
+        "PA": 2, "TO": 2,
+        "AC": 3, "AP": 3, "AM": 3, "RO": 3,
+        "RJ": 4, "RR": 4
+    },
+
     decay: {
-        padrao: { 12: 1.00, 24: 0.90, 36: 0.85, 48: 0.83, 60: 0.81 },
-        bdl: { 12: 1.00, 24: 0.917, 36: 0.876 } // Decaimento específico Vivo BDL
+        ip: { 12: 1.00, 24: 0.8333, 36: 0.7916, 60: 0.7719 },
+        l2: { 12: 1.00, 24: 0.9523, 36: 0.9047, 60: 0.8595 },
+        bdl: { 12: 1.00, 24: 0.9524, 36: 0.9048 }
     }
+};
+
+// Usando as mesmas matrizes da Claro, pois a tabela é unificada
+// Replicamos aqui para o arquivo ficar autônomo (Standalone)
+
+const VIVO_IP_MATRIX = {
+    4:    { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    5:    { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    10:   { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    20:   { g1: [381.30, 3450], g2: [410.70, 3960], g3: [664.02, 4620], g4: [712.80, 6957.50] },
+    30:   { g1: [495.65, 4485], g2: [533.87, 5148], g3: [863.16, 6006], g4: [926.57, 9044.75] },
+    40:   { g1: [672.70, 4830], g2: [725.44, 5544], g3: [1158.78, 6468], g4: [1252.54, 9740.50] },
+    50:   { g1: [915.51, 4830], g2: [988.47, 5544], g3: [1385.82, 6468], g4: [1697.67, 9740.50] },
+    100:  { g1: [1231.11, 4830], g2: [1330.37, 5544], g3: [1854.49, 6468], g4: [2276.27, 9740.50] },
+    200:  { g1: [1506.21, 5700], g2: [1615.97, 6840], g3: [2248.19, 7980], g4: [2761.37, 12017.50] },
+    300:  { g1: [1834.60, 5700], g2: [1955.54, 7524], g3: [2716.96, 8778], g4: [3338.69, 13219.25] },
+    400:  { g1: [2208.36, 6555], g2: [2374.28, 7866], g3: [3292.60, 9177], g4: [4048.65, 13820.13] },
+    500:  { g1: [2674.41, 6840], g2: [2878.37, 8208], g3: [3985.26, 9576], g4: [4903.08, 14421.00] },
+    1000: { g1: [4072.81, 10200], g2: [4387.71, 12240], g3: [6065.97, 14280], g4: [7466.82, 21505.00] }
+};
+
+const VIVO_L2_MATRIX = {
+    4:    { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    5:    { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    10:   { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    20:   { g1: [398.00, 3450], g2: [425.04, 3960], g3: [669.82, 4620], g4: [729.67, 6957.50] },
+    30:   { g1: [590.17, 4485], g2: [631.39, 5148], g3: [990.85, 6006], g4: [1081.98, 9044.75] },
+    40:   { g1: [758.19, 4830], g2: [812.80, 5544], g3: [1269.39, 6468], g4: [1390.02, 9740.50] },
+    50:   { g1: [966.11, 4830], g2: [1038.05, 5544], g3: [1612.46, 6468], g4: [1771.21, 9740.50] },
+    100:  { g1: [1312.65, 4830], g2: [1413.47, 5544], g3: [2184.25, 6468], g4: [2406.53, 9740.50] },
+    200:  { g1: [1480.67, 5700], g2: [1594.87, 6840], g3: [2462.80, 7980], g4: [2714.56, 12017.50] },
+    300:  { g1: [1584.63, 5700], g2: [1698.05, 7524], g3: [2623.31, 8778], g4: [2890.72, 13219.25] },
+    400:  { g1: [1919.36, 6555], g2: [2068.74, 7866], g3: [3189.58, 9177], g4: [3518.82, 13820.13] },
+    500:  { g1: [2573.84, 6840], g2: [2777.31, 8208], g3: [4270.47, 9576], g4: [4718.71, 14421.00] },
+    1000: { g1: [3689.42, 10200], g2: [3982.58, 12240], g3: [6118.17, 14280], g4: [6763.94, 21505.00] }
+};
+
+const VIVO_BDL_MATRIX = {
+    4:    { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    5:    { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    10:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    20:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    50:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    100:  { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    200:  { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    300:  { g1: [234.22, 1924.20], g2: [247.49, 2244.90], g3: [360.68, 2244.90], g4: [451.22, 2244.90] },
+    400:  { g1: [255.11, 1924.20], g2: [270.13, 2244.90], g3: [392.03, 2244.90], g4: [489.53, 2244.90] },
+    500:  { g1: [276.01, 1924.20], g2: [292.77, 2244.90], g3: [423.37, 2244.90], g4: [527.84, 2244.90] },
+    1000: { g1: [517.70, 1924.20], g2: [555.00, 2244.90], g3: [786.01, 2244.90], g4: [970.80, 2244.90] }
 };
 
 (function gerarVivo() {
-    for (const [uf, gId] of Object.entries(VIVO_RULES.groups)) {
-        VELOCIDADES_DISPONIVEIS.forEach(v => {
-            const processProduct = (prodName, tableKey, decayKey) => {
-                let basePrice = VIVO_DATA.prices[tableKey][v] || VIVO_DATA.prices[tableKey][10];
-                let multi = VIVO_RULES.groupMultipliers[tableKey][gId];
-                if (tableKey === 'bdl' && uf === 'RR') multi = 1.73;
+    const allUfs = Object.keys(UF_GROUPS);
 
-                if (basePrice && multi) {
-                    const clean = basePrice * multi;
-                    const inst = VIVO_DATA.inst[tableKey];
-                    const prazos = (decayKey === 'bdl') ? [12, 24, 36] : [12, 24, 36, 48, 60];
+    allUfs.forEach(uf => {
+        let gId = VIVO_RULES.groups[uf] || 1;
+        const gKey = `g${gId}`;
+
+        VELOCIDADES_DISPONIVEIS.forEach(v => {
+            
+            const processMatrix = (prodName, matrix, decayKey) => {
+                if (matrix[v] && matrix[v][gKey]) {
+                    const [baseMensal, baseInst] = matrix[v][gKey];
+                    const prazos = (decayKey === 'bdl') ? [12, 24, 36] : [12, 24, 36, 60];
 
                     prazos.forEach(d => {
                         const fator = VIVO_RULES.decay[decayKey][d] || 1.0;
-                        addEntry('Vivo', prodName, uf, d, v, clean * fator, (clean * fator) * VIVO_RULES.taxFactor, inst, inst * VIVO_RULES.taxFactor);
+                        const mClean = baseMensal * fator;
+                        const mFull = mClean * VIVO_RULES.taxMonthly;
+                        const iClean = baseInst;
+                        const iFull = iClean * VIVO_RULES.taxInst;
+
+                        addEntry('Vivo', prodName, uf, d, v, mClean, mFull, iClean, iFull);
                     });
                 }
             };
-            processProduct('IP DEDICADO', 'ip', 'padrao');
-            processProduct('L2-MPLS', 'l2', 'padrao');
-            processProduct('BANDA LARGA', 'bdl', 'bdl');
+
+            processMatrix('IP DEDICADO', VIVO_IP_MATRIX, 'ip');
+            processMatrix('L2-MPLS', VIVO_L2_MATRIX, 'l2');
+            processMatrix('BANDA LARGA', VIVO_BDL_MATRIX, 'bdl');
         });
-    }
+    });
+    console.log("Ofertas Vivo Carregadas.");
 })();

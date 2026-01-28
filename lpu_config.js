@@ -46,10 +46,10 @@ const UF_GROUPS = {
 const RULES = {
     prazos: {
         12: 1.00,
-        24: 0.90, // Ex: 10% de desconto
-        36: 0.80, // Ex: 20% de desconto
-        48: 0.75,
-        60: 0.70
+        24: 1.00, // Ex: 10% de desconto
+        36: 1.00, // Ex: 20% de desconto
+        48: 1.00,
+        60: 1.00
     },
     instalacao: {
         12: 1.0,

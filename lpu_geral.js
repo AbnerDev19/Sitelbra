@@ -1,83 +1,108 @@
-// lpu_geral.js - BASEADA NO CSV "geral.xlsx"
-
-const GERAL_DATA = {
-    prices: {
-        // IP e L2 são idênticos no CSV Geral
-        ip: {
-            4: 346.50,
-            10: 346.50,
-            20: 450.45,
-            30: 658.35,
-            40: 831.60,
-            50: 1039.50,
-            100: 1386.00,
-            200: 2999.99,
-            500: 3599.99,
-            1000: 5999.99
-        },
-        l2: {
-            4: 346.50,
-            10: 346.50,
-            20: 450.45,
-            30: 658.35,
-            40: 831.60,
-            50: 1039.50,
-            100: 1386.00,
-            200: 2999.99,
-            500: 3599.99,
-            1000: 5999.99
-        },
-        bdl: {
-            4: 208.95,
-            10: 208.95,
-            20: 208.95,
-            50: 208.95,
-            100: 208.95,
-            200: 208.95,
-            300: 246.36,
-            500: 359.72,
-            1000: 514.40
-        }
-    },
-    inst: { ip: 1500, l2: 1500, bdl: 550 }
-};
+// lpu_geral.js
+// ATUALIZADO EM: 27/01/2026 - Matriz Real (Baseada na Tabela Unificada Claro/Vivo)
+// Produtos: IP, L2 e BDL (12, 24, 36, 60 meses)
 
 const GERAL_RULES = {
-    taxFactor: 1.336, // ~33.6%
-    groups: CIRION_RULES.groups, // Mesma divisão geográfica da Cirion (G1..G4)
-    groupMultipliers: {
-        ip: { 1: 1.0, 2: 1.08, 3: 1.65, 4: 1.83 }, // Multiplicadores mais comportados que Cirion
-        l2: { 1: 1.0, 2: 1.08, 3: 1.65, 4: 1.83 },
-        bdl: { 1: 1.0, 2: 1.08, 3: 1.40, 4: 1.71 }
+    // Impostos idênticos à tabela unificada
+    taxMonthly: 1.336, 
+    taxInst: 1.166,    
+
+    // Mesma divisão de grupos
+    groups: {
+        "AL": 1, "BA": 1, "CE": 1, "DF": 1, "ES": 1, "GO": 1, "MA": 1, "MT": 1, 
+        "MS": 1, "MG": 1, "PB": 1, "PR": 1, "PE": 1, "PI": 1, "RN": 1, "RS": 1, 
+        "SC": 1, "SP": 1, "SE": 1,
+        "PA": 2, "TO": 2,
+        "AC": 3, "AP": 3, "AM": 3, "RO": 3,
+        "RJ": 4, "RR": 4
     },
+
+    // Decaimento calculado dos prints
     decay: {
-        // Geral segue decaimento conservador
-        padrao: { 12: 1.00, 24: 0.952, 36: 0.904, 60: 0.860 },
-        bdl: { 12: 1.00, 24: 0.952, 36: 0.904 }
+        ip: { 12: 1.00, 24: 0.8333, 36: 0.7916, 60: 0.7719 },
+        l2: { 12: 1.00, 24: 0.9523, 36: 0.9047, 60: 0.8595 },
+        bdl: { 12: 1.00, 24: 0.9524, 36: 0.9048 }
     }
 };
 
-(function gerarGeral() {
-    for (const [uf, gId] of Object.entries(GERAL_RULES.groups)) {
-        VELOCIDADES_DISPONIVEIS.forEach(v => {
-            const processProduct = (prodName, tableKey, decayKey) => {
-                let basePrice = GERAL_DATA.prices[tableKey][v] || GERAL_DATA.prices[tableKey][10];
-                let multi = GERAL_RULES.groupMultipliers[tableKey][gId];
+// --- MATRIZES BASE 12 MESES (Espelho Claro/Vivo) ---
 
-                if (basePrice) {
-                    const clean = basePrice * multi;
-                    const inst = GERAL_DATA.inst[tableKey];
+const GERAL_IP_MATRIX = {
+    4:    { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    5:    { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    10:   { g1: [298.50, 3450], g2: [321.00, 3960], g3: [527.40, 4620], g4: [561.00, 6957.50] },
+    20:   { g1: [381.30, 3450], g2: [410.70, 3960], g3: [664.02, 4620], g4: [712.80, 6957.50] },
+    30:   { g1: [495.65, 4485], g2: [533.87, 5148], g3: [863.16, 6006], g4: [926.57, 9044.75] },
+    40:   { g1: [672.70, 4830], g2: [725.44, 5544], g3: [1158.78, 6468], g4: [1252.54, 9740.50] },
+    50:   { g1: [915.51, 4830], g2: [988.47, 5544], g3: [1385.82, 6468], g4: [1697.67, 9740.50] },
+    100:  { g1: [1231.11, 4830], g2: [1330.37, 5544], g3: [1854.49, 6468], g4: [2276.27, 9740.50] },
+    200:  { g1: [1506.21, 5700], g2: [1615.97, 6840], g3: [2248.19, 7980], g4: [2761.37, 12017.50] },
+    300:  { g1: [1834.60, 5700], g2: [1955.54, 7524], g3: [2716.96, 8778], g4: [3338.69, 13219.25] },
+    400:  { g1: [2208.36, 6555], g2: [2374.28, 7866], g3: [3292.60, 9177], g4: [4048.65, 13820.13] },
+    500:  { g1: [2674.41, 6840], g2: [2878.37, 8208], g3: [3985.26, 9576], g4: [4903.08, 14421.00] },
+    1000: { g1: [4072.81, 10200], g2: [4387.71, 12240], g3: [6065.97, 14280], g4: [7466.82, 21505.00] }
+};
+
+const GERAL_L2_MATRIX = {
+    4:    { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    5:    { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    10:   { g1: [294.04, 3450], g2: [312.42, 3960], g3: [498.29, 4620], g4: [539.07, 6957.50] },
+    20:   { g1: [398.00, 3450], g2: [425.04, 3960], g3: [669.82, 4620], g4: [729.67, 6957.50] },
+    30:   { g1: [590.17, 4485], g2: [631.39, 5148], g3: [990.85, 6006], g4: [1081.98, 9044.75] },
+    40:   { g1: [758.19, 4830], g2: [812.80, 5544], g3: [1269.39, 6468], g4: [1390.02, 9740.50] },
+    50:   { g1: [966.11, 4830], g2: [1038.05, 5544], g3: [1612.46, 6468], g4: [1771.21, 9740.50] },
+    100:  { g1: [1312.65, 4830], g2: [1413.47, 5544], g3: [2184.25, 6468], g4: [2406.53, 9740.50] },
+    200:  { g1: [1480.67, 5700], g2: [1594.87, 6840], g3: [2462.80, 7980], g4: [2714.56, 12017.50] },
+    300:  { g1: [1584.63, 5700], g2: [1698.05, 7524], g3: [2623.31, 8778], g4: [2890.72, 13219.25] },
+    400:  { g1: [1919.36, 6555], g2: [2068.74, 7866], g3: [3189.58, 9177], g4: [3518.82, 13820.13] },
+    500:  { g1: [2573.84, 6840], g2: [2777.31, 8208], g3: [4270.47, 9576], g4: [4718.71, 14421.00] },
+    1000: { g1: [3689.42, 10200], g2: [3982.58, 12240], g3: [6118.17, 14280], g4: [6763.94, 21505.00] }
+};
+
+const GERAL_BDL_MATRIX = {
+    4:    { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    5:    { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    10:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    20:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    50:   { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    100:  { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    200:  { g1: [171.53, 1924.20], g2: [179.59, 2244.90], g3: [266.66, 2244.90], g4: [336.30, 2244.90] },
+    300:  { g1: [234.22, 1924.20], g2: [247.49, 2244.90], g3: [360.68, 2244.90], g4: [451.22, 2244.90] },
+    400:  { g1: [255.11, 1924.20], g2: [270.13, 2244.90], g3: [392.03, 2244.90], g4: [489.53, 2244.90] },
+    500:  { g1: [276.01, 1924.20], g2: [292.77, 2244.90], g3: [423.37, 2244.90], g4: [527.84, 2244.90] },
+    1000: { g1: [517.70, 1924.20], g2: [555.00, 2244.90], g3: [786.01, 2244.90], g4: [970.80, 2244.90] }
+};
+
+(function gerarGeral() {
+    const allUfs = Object.keys(UF_GROUPS);
+
+    allUfs.forEach(uf => {
+        let gId = GERAL_RULES.groups[uf] || 1;
+        const gKey = `g${gId}`;
+
+        VELOCIDADES_DISPONIVEIS.forEach(v => {
+            
+            const processMatrix = (prodName, matrix, decayKey) => {
+                if (matrix[v] && matrix[v][gKey]) {
+                    const [baseMensal, baseInst] = matrix[v][gKey];
                     const prazos = (decayKey === 'bdl') ? [12, 24, 36] : [12, 24, 36, 60];
 
                     prazos.forEach(d => {
                         const fator = GERAL_RULES.decay[decayKey][d] || 1.0;
-                        addEntry('Geral', prodName, uf, d, v, clean * fator, (clean * fator) * GERAL_RULES.taxFactor, inst, inst * GERAL_RULES.taxFactor);
+                        const mClean = baseMensal * fator;
+                        const mFull = mClean * GERAL_RULES.taxMonthly;
+                        const iClean = baseInst;
+                        const iFull = iClean * GERAL_RULES.taxInst;
+
+                        addEntry('Geral', prodName, uf, d, v, mClean, mFull, iClean, iFull);
                     });
                 }
             };
-            processProduct('IP DEDICADO', 'ip', 'padrao');
-            processProduct('L2-MPLS', 'l2', 'padrao');
-            processProduct('BANDA LARGA', 'bdl', 'bdl');
+
+            processMatrix('IP DEDICADO', GERAL_IP_MATRIX, 'ip');
+            processMatrix('L2-MPLS', GERAL_L2_MATRIX, 'l2');
+            processMatrix('BANDA LARGA', GERAL_BDL_MATRIX, 'bdl');
         });
-    }
+    });
+    console.log("Ofertas Geral Carregadas.");
 })();
