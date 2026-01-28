@@ -1,14 +1,28 @@
-// lpu_config.js
-// Configurações Globais, Regras de Negócio e Inicialização do Banco
-
-// Inicializa o Banco Global
+// lpu_config.js - ATUALIZADO
 window.LPU_DB = [];
 
-// Lista Mestra de Velocidades (Garante que todas apareçam)
-const VELOCIDADES_DISPONIVEIS = [4, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000];
+window.VELOCIDADES_DISPONIVEIS = [4, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000];
 
-// Grupos de Estados
-const UF_GROUPS = {
+window.addEntry = function(operadora, produto, uf, prazo, velocidade, mClean, mFull, iClean, iFull) {
+    window.LPU_DB.push({
+        o: operadora,
+        p: produto,
+        u: uf,
+        d: parseInt(prazo),
+        s: parseInt(velocidade),
+        m: {
+            c: parseFloat(mClean.toFixed(2)),
+            f: parseFloat(mFull.toFixed(2))
+        },
+        i: {
+            c: parseFloat(iClean.toFixed(2)),
+            f: parseFloat(iFull.toFixed(2))
+        }
+    });
+};
+
+// PADRONIZAÇÃO: 1: DF | 2: Geral | 3: Norte/PA/TO | 4: RJ/RR (Críticos)
+window.UF_GROUPS = {
     "DF": 1,
     "SP": 2,
     "MG": 2,
@@ -30,58 +44,10 @@ const UF_GROUPS = {
     "MA": 2,
     "PA": 3,
     "TO": 3,
-    "AC": 4,
-    "AP": 4,
-    "AM": 4,
-    "RO": 4,
-    "RJ": 5,
-    "RR": 6
+    "AC": 3,
+    "AP": 3,
+    "AM": 3,
+    "RO": 3,
+    "RJ": 4,
+    "RR": 4
 };
-
-// ==========================================================
-// REGRAS DE DECAIMENTO (Prazos) - AJUSTE AQUI SE NECESSÁRIO
-// ==========================================================
-// O valor base (12 meses) é mantido (1.00). 
-// Se o desconto estiver errado, altere os decimais abaixo.
-const RULES = {
-    prazos: {
-        12: 1.00,
-        24: 1.00, // Ex: 10% de desconto
-        36: 1.00, // Ex: 20% de desconto
-        48: 1.00,
-        60: 1.00
-    },
-    instalacao: {
-        12: 1.0,
-        24: 1.0,
-        36: 1.0,
-        48: 1.0,
-        60: 1.0
-    }
-};
-
-// Função Auxiliar para Adicionar Ofertas ao Banco
-function addEntry(op, prod, uf, duracao, vel, mc, mf, ic, _if) {
-    if (!mf) mf = mc * 1.15; // Fallback Full
-    if (!_if) _if = ic * 1.15; // Fallback Inst Full
-
-    const fM = RULES.prazos[duracao];
-    const fI = RULES.instalacao[duracao];
-
-    window.LPU_DB.push({
-        o: op,
-        p: prod,
-        u: uf,
-        d: duracao,
-        s: vel,
-        m: { c: mc * fM, f: mf * fM },
-        i: { c: ic * fI, f: _if * fI }
-    });
-}
-
-// Função Auxiliar para Processar todos os prazos de uma vez
-function processarPrazos(op, prod, uf, vel, mc, mf, ic, _if) {
-    [12, 24, 36, 48, 60].forEach(d => {
-        addEntry(op, prod, uf, d, vel, mc, mf, ic, _if);
-    });
-}

@@ -1,272 +1,136 @@
-// lpu_oi.js - BASEADA NOS CSVS "oi.xlsx"
-// CORREÇÃO: Instalação dinâmica por velocidade e ajustes finos nos multiplicadores de RJ/RR.
+// lpu_oi.js - BASEADA NAS MATRIZES DIRETAS (ATUALIZADO)
+// CORREÇÃO: Uso de valores exatos por Grupo/Velocidade (sem multiplicadores aproximados).
 
-const OI_DATA = {
-    // 1. TABELA DE PREÇOS MENSAIS BASE (Referência: Grupo 2 - SP/Geral)
-    prices: {
-        ip: {
-            4: 388.24,
-            5: 388.24,
-            10: 388.24,
-            20: 469.41,
-            30: 610.20,
-            40: 793.33,
-            50: 1031.38,
-            100: 1340.79,
-            200: 1609.03,
-            300: 1930.98,
-            400: 2317.26,
-            500: 2780.79,
-            1000: 4198.83
-        },
-        l2: {
-            4: 407.69,
-            5: 407.69,
-            10: 407.69,
-            20: 530.00,
-            30: 774.61,
-            40: 978.46,
-            50: 1223.08,
-            100: 1630.77,
-            200: 1834.61,
-            300: 1956.92,
-            400: 2364.61,
-            500: 3139.23,
-            1000: 4484.61
-        },
-        bdl: {
-            4: 286.26,
-            5: 286.26,
-            10: 286.26,
-            20: 286.26,
-            30: 286.26,
-            40: 286.26,
-            50: 286.26,
-            100: 286.26,
-            200: 286.26,
-            300: 360.54,
-            400: 396.59,
-            500: 436.25,
-            1000: 567.13
-        }
-    },
+// --- 1. MATRIZES DE DADOS (PREÇO MENSAL, INSTALAÇÃO) ---
 
-    // 2. TABELA DE INSTALAÇÃO BASE (Por Velocidade)
-    // A instalação muda conforme a velocidade aumenta.
-    inst_base: {
-        ip: {
-            4: 1500,
-            5: 1500,
-            10: 1500,
-            20: 1500,
-            30: 1950,
-            40: 2100,
-            50: 2100,
-            100: 2100,
-            200: 3000,
-            300: 3000,
-            400: 3450,
-            500: 3600,
-            1000: 6000
-        },
-        l2: {
-            4: 2700,
-            5: 2700,
-            10: 2700,
-            20: 2700,
-            30: 3510,
-            40: 3780,
-            50: 3780,
-            100: 3780,
-            200: 5100,
-            300: 5100,
-            400: 5865,
-            500: 6120,
-            1000: 8400
-        },
-        bdl: {
-            // BDL é mais estável, mas definimos base 550
-            all: 550
-        }
-    }
+const OI_IP_MATRIX = {
+    4: { g1: [355.88, 1500.00], g2: [388.24, 1500.00], g3: [420.59, 1800.00], g4: [640.59, 2100.00], g5: [711.77, 2750.00] },
+    5: { g1: [355.88, 1500.00], g2: [388.24, 1500.00], g3: [420.59, 1800.00], g4: [640.59, 2100.00], g5: [711.77, 2750.00] },
+    10: { g1: [355.88, 1500.00], g2: [388.24, 1500.00], g3: [420.59, 1800.00], g4: [640.59, 2100.00], g5: [711.77, 2750.00] },
+    20: { g1: [430.29, 1500.00], g2: [469.41, 1500.00], g3: [508.53, 1800.00], g4: [774.53, 2100.00], g5: [860.59, 2750.00] },
+    30: { g1: [559.34, 1950.00], g2: [610.20, 1950.00], g3: [661.05, 2340.00], g4: [1006.83, 2730.00], g5: [1118.70, 3575.00] },
+    40: { g1: [727.22, 2100.00], g2: [793.33, 2100.00], g3: [859.45, 2520.00], g4: [1309.00, 2940.00], g5: [1454.45, 3850.00] },
+    50: { g1: [945.42, 2100.00], g2: [1031.38, 2100.00], g3: [1117.32, 2520.00], g4: [1531.59, 2940.00], g5: [1890.85, 3850.00] },
+    100: { g1: [1229.05, 2100.00], g2: [1340.79, 2100.00], g3: [1452.52, 2520.00], g4: [1991.07, 2940.00], g5: [2458.11, 3850.00] },
+    200: { g1: [1474.93, 3000.00], g2: [1609.03, 3000.00], g3: [1743.11, 3600.00], g4: [2389.40, 4200.00], g5: [2949.88, 5500.00] },
+    300: { g1: [1770.07, 3000.00], g2: [1930.98, 3000.00], g3: [2091.90, 3960.00], g4: [2867.51, 4620.00], g5: [3540.13, 6050.00] },
+    400: { g1: [2124.16, 3450.00], g2: [2317.26, 3450.00], g3: [2510.37, 4140.00], g4: [3441.13, 4830.00], g5: [4248.31, 6325.00] },
+    500: { g1: [2549.05, 3600.00], g2: [2780.79, 3600.00], g3: [3012.52, 4320.00], g4: [4129.47, 5040.00], g5: [5098.11, 6600.00] },
+    1000: { g1: [3848.92, 6000.00], g2: [4198.83, 6000.00], g3: [4548.74, 7200.00], g4: [6235.26, 8399.99], g5: [7697.86, 10999.99] }
 };
 
+const OI_L2_MATRIX = {
+    4: { g1: [407.69, 2700.00], g2: [441.67, 3240.00], g3: [672.69, 3780.00], g4: [747.44, 4950.00] },
+    5: { g1: [407.69, 2700.00], g2: [441.67, 3240.00], g3: [672.69, 3780.00], g4: [747.44, 4950.00] },
+    10: { g1: [407.69, 2700.00], g2: [441.67, 3240.00], g3: [672.69, 3780.00], g4: [747.44, 4950.00] },
+    20: { g1: [530.00, 2700.00], g2: [574.17, 3240.00], g3: [874.50, 3780.00], g4: [971.67, 4950.00] },
+    30: { g1: [774.61, 3510.00], g2: [839.17, 4212.00], g3: [1278.11, 4914.00], g4: [1420.13, 6435.00] },
+    40: { g1: [978.46, 3780.00], g2: [1060.00, 4536.00], g3: [1614.46, 5292.00], g4: [1793.84, 6930.00] },
+    50: { g1: [1223.08, 3780.00], g2: [1325.00, 4536.00], g3: [2018.07, 5292.00], g4: [2242.31, 6930.00] },
+    100: { g1: [1630.77, 3780.00], g2: [1766.66, 4536.00], g3: [2690.77, 5292.00], g4: [2989.74, 6930.00] },
+    200: { g1: [1834.61, 5100.00], g2: [1987.50, 6120.00], g3: [3027.11, 7140.00], g4: [3363.46, 7700.00] },
+    300: { g1: [1956.92, 5100.00], g2: [2120.00, 6732.00], g3: [3228.92, 7854.00], g4: [3587.69, 8470.00] },
+    400: { g1: [2364.61, 5865.00], g2: [2561.66, 7038.00], g3: [3901.61, 8211.00], g4: [4335.12, 8855.00] },
+    500: { g1: [3139.23, 6120.00], g2: [3400.83, 7344.00], g3: [5179.73, 8568.00], g4: [5755.25, 9240.00] },
+    1000: { g1: [4484.61, 8400.00], g2: [4858.33, 10080.00], g3: [7399.61, 11760.00], g4: [8221.79, 13200.00] }
+};
+
+const OI_BDL_MATRIX = {
+    4: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    5: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    10: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    20: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    30: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    40: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    50: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    100: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    200: { g1: [272.63, 550.00], g2: [300.57, 750.00], g3: [300.57, 750.00], g4: [375.72, 750.00], g5: [432.07, 850.00], g6: [496.88, 850.00] },
+    300: { g1: [343.37, 550.00], g2: [378.57, 750.00], g3: [378.57, 750.00], g4: [473.21, 750.00], g5: [544.19, 850.00], g6: [625.82, 850.00] },
+    400: { g1: [377.71, 550.00], g2: [416.42, 750.00], g3: [416.42, 750.00], g4: [520.53, 750.00], g5: [598.61, 850.00], g6: [688.40, 850.00] },
+    500: { g1: [415.48, 550.00], g2: [458.06, 750.00], g3: [458.06, 750.00], g4: [572.58, 750.00], g5: [658.47, 850.00], g6: [757.24, 850.00] },
+    1000: { g1: [540.12, 550.00], g2: [595.48, 750.00], g3: [595.48, 750.00], g4: [744.35, 750.00], g5: [856.01, 850.00], g6: [984.41, 850.00] }
+};
+
+
+// --- 2. REGRAS DE NEGÓCIO (GROUPS E DECAY) ---
+
+// lpu_oi.js - ATUALIZADO
 const OI_RULES = {
-    taxFactor: 1.0379, // ~3.79%
+    // Unificado com Claro/Vivo/Cirion
+    taxMonthly: 1.336,
+    taxInst: 1.166,
 
-    // Mapeamento de UF para Grupo
     groups: {
-        ip: {
-            "DF": 1,
-            "SP": 2,
-            "MG": 2,
-            "PR": 2,
-            "RS": 2,
-            "SC": 2,
-            "ES": 2,
-            "GO": 2,
-            "MS": 2,
-            "MT": 2,
-            "BA": 2,
-            "SE": 2,
-            "AL": 2,
-            "PE": 2,
-            "PB": 2,
-            "RN": 2,
-            "CE": 2,
-            "PI": 2,
-            "MA": 2,
-            "PA": 3,
-            "TO": 3,
-            "AC": 4,
-            "AP": 4,
-            "AM": 4,
-            "RO": 4,
-            "RJ": 5,
-            "RR": 5 // RJ e RR no Grupo 5 (Mais caro)
-        },
-        l2: {
-            // No L2, DF entra no Grupo 1 (Geral)
-            "DF": 1,
-            "SP": 1,
-            "MG": 1,
-            "PR": 1,
-            "RS": 1,
-            "SC": 1,
-            "ES": 1,
-            "GO": 1,
-            "MS": 1,
-            "MT": 1,
-            "BA": 1,
-            "SE": 1,
-            "AL": 1,
-            "PE": 1,
-            "PB": 1,
-            "RN": 1,
-            "CE": 1,
-            "PI": 1,
-            "MA": 1,
-            "PA": 2,
-            "TO": 2,
-            "AC": 3,
-            "AP": 3,
-            "AM": 3,
-            "RO": 3,
-            "RJ": 4,
-            "RR": 4 // RJ e RR no Grupo 4 do L2
-        },
-        bdl: {
-            "DF": 1,
-            "SP": 2,
-            "MG": 2,
-            "PR": 2,
-            "RS": 2,
-            "SC": 2,
-            "ES": 2,
-            "GO": 2,
-            "MS": 2,
-            "MT": 2,
-            "BA": 2,
-            "SE": 2,
-            "AL": 2,
-            "PE": 2,
-            "PB": 2,
-            "RN": 2,
-            "CE": 2,
-            "PI": 2,
-            "MA": 2,
-            "PA": 3,
-            "TO": 3,
-            "AC": 4,
-            "AP": 4,
-            "AM": 4,
-            "RJ": 5,
-            "RO": 5, // RO é caro no BDL
-            "RR": 6
-        }
+        // Alinhado ao novo padrão lpu_config.js
+        "DF": "g1",
+        "SP": "g2",
+        "MG": "g2",
+        "ES": "g2",
+        "PR": "g2",
+        "SC": "g2",
+        "RS": "g2",
+        "GO": "g2",
+        "MS": "g2",
+        "MT": "g2",
+        "BA": "g2",
+        "SE": "g2",
+        "AL": "g2",
+        "PE": "g2",
+        "PB": "g2",
+        "RN": "g2",
+        "CE": "g2",
+        "PI": "g2",
+        "MA": "g2",
+        "PA": "g3",
+        "TO": "g3",
+        "AC": "g3",
+        "AP": "g3",
+        "AM": "g3",
+        "RO": "g3",
+        "RJ": "g4",
+        "RR": "g4"
     },
-
-    // Multiplicadores (Aplicados sobre a Base para Mensalidade E Instalação)
-    multipliers: {
-        ip: { 1: 0.916, 2: 1.00, 3: 1.083, 4: 1.65, 5: 1.833 },
-        l2: { 1: 1.000, 2: 1.083, 3: 1.65, 4: 1.833 },
-        // BDL tem instalação fixa por grupo no CSV, então trataremos diferente na lógica
-        bdl: { 1: 0.952, 2: 1.00, 3: 1.05, 4: 1.312, 5: 1.509, 6: 1.735 }
-    },
-
-    // Instalação Fixa BDL por Grupo (Exceção à regra de multiplicador)
-    bdlInstFixed: { 1: 550, 2: 550, 3: 750, 4: 750, 5: 850, 6: 850 },
 
     decay: {
-        ip: { 12: 1.00, 24: 0.90, 36: 0.85, 48: 0.803, 60: 0.758 },
+        ip: { 12: 1.00, 24: 0.90, 36: 0.85, 48: 0.80, 60: 0.75 },
         l2: { 12: 1.00, 24: 0.90, 36: 0.85, 60: 0.81 },
-        bdl: { 12: 1.00, 24: 0.952, 36: 0.907 }
+        bdl: { 12: 1.00, 24: 0.95, 36: 0.90 }
     }
 };
 
 (function gerarOi() {
-    // Itera por todas as UFs conhecidas
-    const allUfs = Object.keys(UF_GROUPS);
+    const allUfs = Object.keys(OI_RULES.groups);
+    const speeds = VELOCIDADES_DISPONIVEIS;
 
     allUfs.forEach(uf => {
-        VELOCIDADES_DISPONIVEIS.forEach(v => {
+        const groupKey = OI_RULES.groups[uf];
 
-            // --- 1. IP DEDICADO ---
-            let gIp = OI_RULES.groups.ip[uf] || 2;
-            let mIp = OI_RULES.multipliers.ip[gIp];
-            let baseIp = OI_DATA.prices.ip[v] || OI_DATA.prices.ip[10];
-            let baseInstIp = OI_DATA.inst_base.ip[v] || OI_DATA.inst_base.ip[10];
+        speeds.forEach(v => {
+            const processProduct = (prodName, matrix, decayMap) => {
+                // Se a matriz não tiver g4 (RJ/RR), usa g3 como fallback seguro
+                const data = matrix[v] ? (matrix[v][groupKey] || matrix[v]["g3"]) : null;
 
-            if (baseIp) {
-                let cleanM = baseIp * mIp;
-                let cleanI = baseInstIp * mIp; // Multiplicador afeta a instalação também no IP
+                if (data) {
+                    const [rawMonthly, rawInst] = data;
+                    Object.keys(decayMap).forEach(prazo => {
+                        const fator = decayMap[prazo];
+                        const mClean = rawMonthly * fator;
+                        const iClean = rawInst;
 
-                [12, 24, 36, 48, 60].forEach(d => {
-                    let fator = OI_RULES.decay.ip[d] || 1.0;
-                    addEntry('Oi', 'IP DEDICADO', uf, d, v,
-                        cleanM * fator, (cleanM * fator) * OI_RULES.taxFactor,
-                        cleanI, cleanI * OI_RULES.taxFactor
-                    );
-                });
-            }
+                        addEntry('Oi', prodName, uf, prazo, v,
+                            mClean,
+                            mClean * OI_RULES.taxMonthly,
+                            iClean,
+                            iClean * OI_RULES.taxInst
+                        );
+                    });
+                }
+            };
 
-            // --- 2. L2 MPLS ---
-            let gL2 = OI_RULES.groups.l2[uf] || 1;
-            let mL2 = OI_RULES.multipliers.l2[gL2];
-            let baseL2 = OI_DATA.prices.l2[v] || OI_DATA.prices.l2[10];
-            let baseInstL2 = OI_DATA.inst_base.l2[v] || OI_DATA.inst_base.l2[10];
-
-            if (baseL2) {
-                let cleanM = baseL2 * mL2;
-                let cleanI = baseInstL2 * mL2; // Multiplicador afeta a instalação no L2
-
-                [12, 24, 36, 60].forEach(d => {
-                    let fator = OI_RULES.decay.l2[d] || 1.0;
-                    addEntry('Oi', 'L2-MPLS', uf, d, v,
-                        cleanM * fator, (cleanM * fator) * OI_RULES.taxFactor,
-                        cleanI, cleanI * OI_RULES.taxFactor
-                    );
-                });
-            }
-
-            // --- 3. BANDA LARGA ---
-            let gBdl = OI_RULES.groups.bdl[uf] || 2;
-            let mBdl = OI_RULES.multipliers.bdl[gBdl];
-            let baseBdl = OI_DATA.prices.bdl[v] || OI_DATA.prices.bdl[10];
-
-            if (baseBdl) {
-                let cleanM = baseBdl * mBdl;
-                let cleanI = OI_RULES.bdlInstFixed[gBdl]; // BDL usa tabela fixa de instalação
-
-                [12, 24, 36].forEach(d => {
-                    let fator = OI_RULES.decay.bdl[d] || 1.0;
-                    addEntry('Oi', 'BANDA LARGA', uf, d, v,
-                        cleanM * fator, (cleanM * fator) * OI_RULES.taxFactor,
-                        cleanI, cleanI * OI_RULES.taxFactor
-                    );
-                });
-            }
+            processProduct('IP DEDICADO', OI_IP_MATRIX, OI_RULES.decay.ip);
+            processProduct('L2-MPLS', OI_L2_MATRIX, OI_RULES.decay.l2);
+            processProduct('BANDA LARGA', OI_BDL_MATRIX, OI_RULES.decay.bdl);
         });
     });
-    console.log("Ofertas Oi (Corrigidas RJ/RR) Carregadas.");
+    console.log("Ofertas Oi Atualizadas e Coerentes.");
 })();
