@@ -1,30 +1,32 @@
 // script.js
-// ATUALIZADO EM: 27/01/2026 - Correção da Inicialização do Grid Visual
+// ATUALIZADO: Produtos Sempre Visíveis + Cálculo Real de Especiais
 
 document.addEventListener('DOMContentLoaded', () => {
     // Data
     const dateEl = document.getElementById('currentDate');
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString('pt-BR');
 
-    // --- INICIALIZAÇÃO CORRIGIDA ---
-    populateDropdowns();
+    // Inicialização
+    renderOperators();
+    renderVisualUF();
+    renderPrazoButtons();
     renderSpecials();
-    renderVisualUF(); // <--- ESTA CHAMADA FALTAVA PARA EXIBIR OS QUADRADOS
 
-    // Listeners Globais
-    document.body.addEventListener('change', calculate);
+    // Inicializa Grids (Mostra tudo desabilitado)
+    updateProducts();
+    updateSpeeds();
+
+    // Listeners
     document.body.addEventListener('input', (e) => {
         if (e.target.type === 'number') calculate();
     });
 
-    // Listener Específico para o Modo de Imposto
     const selImposto = document.getElementById('selImpostoMode');
     if (selImposto) selImposto.addEventListener('change', calculate);
 
     const btnCopy = document.getElementById('btnCopy');
     if (btnCopy) btnCopy.addEventListener('click', copyEmail);
 
-    // Toggle Rural
     const checkRural = document.getElementById('checkRural');
     if (checkRural) {
         checkRural.addEventListener('change', (e) => {
@@ -39,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- RENDERIZAÇÃO DE ESPECIAIS ---
 function renderSpecials() {
     const container = document.getElementById('specialsContainer');
-    if (!container || typeof window.SPECIALS_DB === 'undefined') return;
+    if (!container || !window.SPECIALS_DB) return;
     container.innerHTML = '';
 
     window.SPECIALS_DB.forEach(item => {
@@ -50,17 +52,31 @@ function renderSpecials() {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `sp_${item.id}`;
-        checkbox.dataset.price = item.valor;
-        checkbox.dataset.type = item.tipo;
-        checkbox.dataset.name = item.nome;
-        checkbox.dataset.hasInput = item.input || false;
+
+        // Armazena dados no dataset para uso rápido, embora usaremos a DB no calculate
+        checkbox.dataset.id = item.id;
+        checkbox.addEventListener('change', calculate);
 
         const label = document.createElement('span');
         label.className = 'toggle-label';
+
+        // Define texto do label baseado no tipo
+        let extraText = "";
+        if (item.tipo === 'mul' && item.mul !== 1) extraText = ` (x${item.mul})`;
+        if (item.tipo === 'add_m' && item.add_m > 0) extraText = ` (+R$ ${item.add_m})`;
+
         if (item.input) {
-            label.innerHTML = `${item.nome} <br><input type="number" id="val_${item.id}" class="input-text" style="width:100px; margin-top:5px; font-size:0.8rem;" placeholder="R$ valor">`;
+            // Input numérico (ex: Quantidade de IPs)
+            label.innerHTML = `${item.nome} <br>
+                <input type="number" id="val_${item.id}" class="input-text" 
+                style="width:100px; margin-top:5px; font-size:0.8rem;" placeholder="Qtd">`;
+
+            setTimeout(() => {
+                const inp = document.getElementById(`val_${item.id}`);
+                if (inp) inp.addEventListener('input', calculate);
+            }, 100);
         } else {
-            label.innerText = `${item.nome} (+R$ ${item.valor})`;
+            label.innerText = `${item.nome}${extraText}`;
         }
 
         const labelContainer = document.createElement('label');
@@ -76,220 +92,279 @@ function renderSpecials() {
     });
 }
 
-// --- LÓGICA DE SELEÇÃO ---
-function populateDropdowns() {
-    if (typeof window.LPU_DB === 'undefined') return;
-    const db = window.LPU_DB;
-    fillSelect('selOperadora', [...new Set(db.map(i => i.o))].sort());
-    fillSelect('selProduto', [...new Set(db.map(i => i.p))].sort());
-    fillSelect('selUF', [...new Set(db.map(i => i.u))].sort());
+// ... (renderPrazoButtons, renderOperators, renderVisualUF, selectOperator, selectVisualUF MANTIDOS IGUAIS) ...
+// Vou incluir apenas o updateProducts e calculate que mudaram bastante.
 
-    ['selOperadora', 'selProduto', 'selUF', 'selPrazo'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', updateSpeeds);
+function renderPrazoButtons() {
+    const container = document.getElementById('visualPrazoGrid');
+    const hiddenInput = document.getElementById('selPrazo');
+    if (!container || !hiddenInput) return;
+    const prazos = [12, 24, 36, 48, 60];
+    prazos.forEach(p => {
+        const btn = document.createElement('div');
+        btn.className = 'pill-btn-sm';
+        btn.textContent = `${p}m`;
+        if (p == 36) btn.classList.add('active');
+        btn.onclick = () => {
+            container.querySelectorAll('.pill-btn-sm').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            hiddenInput.value = p;
+            updateSpeeds();
+            calculate();
+        };
+        container.appendChild(btn);
     });
 }
 
-function fillSelect(id, values) {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const current = sel.value;
-    sel.innerHTML = '<option value="">Selecione...</option>';
-    sel.disabled = false;
-    values.forEach(v => sel.add(new Option(v, v)));
-    if (values.includes(current)) sel.value = current;
+function renderOperators() {
+    const container = document.getElementById('visualOpGrid');
+    if (!container || !window.LPU_DB) return;
+    const ops = [...new Set(window.LPU_DB.map(i => i.o))].sort();
+    ops.forEach(op => {
+        const btn = document.createElement('div');
+        btn.className = 'pill-btn';
+        btn.textContent = op;
+        btn.onclick = () => selectOperator(op, btn);
+        container.appendChild(btn);
+    });
 }
 
-// --- NOVO: LÓGICA DO GRID VISUAL DE UFS ---
+function selectOperator(op, btnElement) {
+    document.querySelectorAll('#visualOpGrid .pill-btn').forEach(b => b.classList.remove('active'));
+    btnElement.classList.add('active');
+    document.getElementById('selOperadora').value = op;
+    document.getElementById('selProduto').value = "";
+    document.getElementById('selVelocidade').value = "";
+    updateProducts();
+    updateSpeeds();
+    calculate();
+}
+
 function renderVisualUF() {
     const container = document.getElementById('visualUFGrid');
     if (!container || !window.UF_GROUPS) return;
-
     container.innerHTML = '';
-
-    // Pega as UFs e ordena alfabeticamente
     const ufs = Object.keys(window.UF_GROUPS).sort();
-
     ufs.forEach(uf => {
         const group = window.UF_GROUPS[uf];
-
         const btn = document.createElement('div');
         btn.className = `uf-square grp${group}`;
         btn.textContent = uf;
         btn.dataset.uf = uf;
-
-        // Evento de Clique
-        btn.addEventListener('click', () => {
-            selectVisualUF(uf);
-        });
-
+        btn.onclick = () => selectVisualUF(uf);
         container.appendChild(btn);
     });
 }
 
 function selectVisualUF(uf) {
-    // 1. Atualiza o Select escondido (se existir) e a variável lógica
-    const selUF = document.getElementById('selUF');
-    if (selUF) {
-        selUF.value = uf;
-        // Dispara o evento de mudança para rodar o updateSpeeds/calculate
-        const event = new Event('change');
-        selUF.dispatchEvent(event);
+    document.getElementById('selUF').value = uf;
+    document.querySelectorAll('.uf-square').forEach(sq => {
+        if (sq.dataset.uf === uf) sq.classList.add('active');
+        else sq.classList.remove('active');
+    });
+    updateSpeeds();
+    calculate();
+}
+
+// --- PRODUTOS (SEMPRE VISÍVEIS) ---
+function updateProducts() {
+    const op = document.getElementById('selOperadora').value;
+    const container = document.getElementById('visualProdGrid');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Lista global de produtos (Extraída de todo o DB)
+    const allProducts = [...new Set(window.LPU_DB.map(i => i.p))].sort();
+
+    // Produtos disponíveis para a operadora selecionada
+    let availableProducts = [];
+    if (op) {
+        availableProducts = [...new Set(window.LPU_DB.filter(i => i.o === op).map(i => i.p))];
     }
 
-    // 2. Atualiza visualmente os quadradinhos
-    document.querySelectorAll('.uf-square').forEach(sq => {
-        if (sq.dataset.uf === uf) {
-            sq.classList.add('active');
+    allProducts.forEach(prod => {
+        const btn = document.createElement('div');
+        btn.textContent = prod;
+
+        if (!op) {
+            // Sem operadora: Mostra disabled
+            btn.className = 'pill-btn disabled';
         } else {
-            sq.classList.remove('active');
+            if (availableProducts.includes(prod)) {
+                btn.className = 'pill-btn';
+                if (document.getElementById('selProduto').value === prod) {
+                    btn.classList.add('active');
+                }
+                btn.onclick = () => selectProduct(prod, btn);
+            } else {
+                // Produto existe, mas não nessa operadora
+                btn.className = 'pill-btn disabled';
+            }
         }
+        container.appendChild(btn);
     });
 }
 
+function selectProduct(prod, btnElement) {
+    document.querySelectorAll('#visualProdGrid .pill-btn').forEach(b => b.classList.remove('active'));
+    btnElement.classList.add('active');
+    document.getElementById('selProduto').value = prod;
+    document.getElementById('selVelocidade').value = "";
+    updateSpeeds();
+    calculate();
+}
+
+// --- VELOCIDADES (SEMPRE VISÍVEIS) ---
 function updateSpeeds() {
     const op = document.getElementById('selOperadora').value;
     const prod = document.getElementById('selProduto').value;
     const uf = document.getElementById('selUF').value;
-    const dur = parseInt(document.getElementById('selPrazo').value);
-    const selSpeed = document.getElementById('selVelocidade');
+    const dur = parseInt(document.getElementById('selPrazo').value) || 36;
+    const container = document.getElementById('visualSpeedGrid');
+    const hiddenInput = document.getElementById('selVelocidade');
 
-    if (!selSpeed) return;
+    if (!container) return;
+    container.innerHTML = '';
 
-    // Reseta o select de velocidade se algo mudar
-    selSpeed.innerHTML = '<option value="">Selecione...</option>';
-    selSpeed.disabled = true;
+    const allSpeeds = window.VELOCIDADES_DISPONIVEIS || [4, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000];
 
-    if (!op || !prod || !uf) return;
+    let availableSpeeds = [];
+    let hasFilters = (op && prod && uf);
 
-    const itens = window.LPU_DB.filter(i => i.o == op && i.p == prod && i.u == uf && i.d == dur);
-    const speeds = [...new Set(itens.map(i => i.s))].sort((a, b) => a - b);
-
-    if (speeds.length > 0) {
-        selSpeed.disabled = false;
-        speeds.forEach(s => {
-            const label = s >= 1000 ? (s / 1000) + ' Gbps' : s + ' Mbps';
-            selSpeed.add(new Option(label, s));
-        });
-    } else {
-        selSpeed.add(new Option("Sem viabilidade", ""));
+    if (hasFilters) {
+        const itens = window.LPU_DB.filter(i => i.o == op && i.p == prod && i.u == uf && i.d == dur);
+        availableSpeeds = itens.map(i => i.s);
     }
-    calculate();
+
+    allSpeeds.forEach(s => {
+        const btn = document.createElement('div');
+        const labelMain = s >= 1000 ? (s / 1000) + ' Gbps' : s + ' Mbps';
+        btn.innerHTML = `${labelMain}`;
+
+        if (!hasFilters) {
+            btn.className = 'speed-square disabled';
+        } else {
+            if (availableSpeeds.includes(s)) {
+                btn.className = 'speed-square';
+                if (parseInt(hiddenInput.value) === s) btn.classList.add('active');
+                btn.onclick = () => {
+                    document.querySelectorAll('.speed-square').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    hiddenInput.value = s;
+                    calculate();
+                };
+            } else {
+                btn.className = 'speed-square disabled';
+            }
+        }
+        container.appendChild(btn);
+    });
+
+    // Limpa se a seleção atual ficou inválida
+    if (hiddenInput.value && hasFilters && !availableSpeeds.includes(parseInt(hiddenInput.value))) {
+        hiddenInput.value = "";
+        calculate();
+    }
 }
 
-// --- CÁLCULO CORE ---
-
+// --- CÁLCULO FINAL (CORRIGIDO) ---
 function calculate() {
-    // Inputs
     const op = document.getElementById('selOperadora').value;
     const prod = document.getElementById('selProduto').value;
     const uf = document.getElementById('selUF').value;
     const dur = parseInt(document.getElementById('selPrazo').value) || 36;
     const speed = parseFloat(document.getElementById('selVelocidade').value) || 0;
-    const impostoMode = document.getElementById('selImpostoMode') ? document.getElementById('selImpostoMode').value : 'com';
+    const impostoMode = document.getElementById('selImpostoMode').value;
 
-    // Valores Base (Objetos {c, f})
-    let mensalObj = { c: 0, f: 0 };
-    let instalObj = { c: 0, f: 0 };
-
-    if (speed) {
-        const item = window.LPU_DB.find(i =>
-            i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed
-        );
-        if (item && item.m) {
-            if (typeof item.m === 'object') {
-                mensalObj = item.m;
-                instalObj = item.i;
-            } else {
-                mensalObj = { c: item.m, f: item.m };
-                instalObj = { c: item.i, f: item.i };
-            }
-        }
-    }
-
-    // Fatores Multiplicadores (Local)
-    let fator = 1.0;
-    const detalhes = [];
-
-    if (document.getElementById('checkShopping').checked) {
-        fator *= 2.0;
-        detalhes.push("Shopping (x2)");
-    }
-    if (document.getElementById('checkAeroporto').checked) {
-        fator *= 3.0;
-        detalhes.push("Aeroporto (x3)");
-    }
-    if (document.getElementById('checkIndustria').checked) {
-        fator *= 1.4;
-        detalhes.push("Indústria (x1.4)");
-    }
-
-    // Datacenter
-    let extraData = 0;
-    if (document.getElementById('checkDatacenter').checked) {
-        extraData = 1200;
-        detalhes.push("Datacenter (+1.2k)");
-    }
-
-    // Rural
-    let custoRural = 0;
-    if (document.getElementById('checkRural').checked) {
-        const dist = parseFloat(document.getElementById('inputDistancia').value) || 0;
-        custoRural = ((dist * 4.50) + 800) * 1.16;
-        detalhes.push(`Rural (${dist}m)`);
-    }
-
-    // Projetos Especiais
-    let specialM = 0;
-    let specialI = 0;
-    const checkboxes = document.querySelectorAll('input[id^="sp_"]');
-    checkboxes.forEach(chk => {
-        if (chk.checked) {
-            let val = parseFloat(chk.dataset.price);
-            const hasInput = chk.dataset.hasInput === 'true';
-
-            if (hasInput) {
-                const inputVal = document.getElementById(`val_${chk.id.replace('sp_', '')}`);
-                if (inputVal) val = parseFloat(inputVal.value) || 0;
-            }
-
-            if (chk.dataset.type === 'mensal') {
-                specialM += val;
-            } else {
-                specialI += val;
-            }
-        }
-    });
-
-    // --- CÁLCULO FINAL ---
-    const finalM_Clean = (mensalObj.c * fator) + extraData + specialM;
-    const finalM_Full = (mensalObj.f * fator) + extraData + specialM;
-
-    const finalI_Clean = instalObj.c + custoRural + specialI;
-    const finalI_Full = instalObj.f + custoRural + specialI;
-
-    // --- EXIBIÇÃO NOS CARDS ---
     const lblMensal = document.getElementById('resMensal');
     const lblInstal = document.getElementById('resInstalacao');
     const obsMensal = document.getElementById('resMensalObs');
     const obsInstal = document.getElementById('resInstalacaoObs');
 
-    if (obsMensal) obsMensal.innerText = "";
-    if (obsInstal) obsInstal.innerText = "";
+    lblMensal.innerText = "R$ 0,00";
+    lblInstal.innerText = "R$ 0,00";
+    if (obsMensal) obsMensal.innerText = "Sem Impostos";
+    if (obsInstal) obsInstal.innerText = "Sem Impostos";
 
+    if (!op || !prod || !uf || !speed) return;
+
+    // 1. Busca Preço Base
+    const item = window.LPU_DB.find(i => i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed);
+
+    let mensalObj = { c: 0, f: 0 };
+    let instalObj = { c: 0, f: 0 };
+
+    if (item && item.m) {
+        mensalObj = (typeof item.m === 'object') ? item.m : { c: item.m, f: item.m };
+        instalObj = (typeof item.i === 'object') ? item.i : { c: item.i, f: item.i };
+    } else {
+        return;
+    }
+
+    // 2. Fatores do Sidebar (Hardcoded no HTML)
+    let fatorGlobal = 1.0;
+    if (document.getElementById('checkShopping').checked) fatorGlobal *= 2.0;
+    if (document.getElementById('checkAeroporto').checked) fatorGlobal *= 3.0;
+    if (document.getElementById('checkIndustria').checked) fatorGlobal *= 1.4;
+
+    let extraData = document.getElementById('checkDatacenter').checked ? 1200 : 0;
+
+    // Rural
+    const isRural = document.getElementById('checkRural').checked;
+    const distRural = parseFloat(document.getElementById('inputDistancia').value) || 0;
+    let custoRural = isRural ? ((distRural * 4.50) + 800) * 1.16 : 0;
+
+    // 3. Projetos Especiais (Do CSV/specials.js)
+    let specialMensalAdd = 0;
+    let specialInstalAdd = 0;
+
+    if (window.SPECIALS_DB) {
+        window.SPECIALS_DB.forEach(sp => {
+            const chk = document.getElementById(`sp_${sp.id}`);
+            if (chk && chk.checked) {
+                // Multiplicador
+                if (sp.tipo === 'mul') {
+                    fatorGlobal *= sp.mul;
+                }
+                // Valor Fixo
+                else if (sp.tipo === 'add_m') {
+                    specialMensalAdd += (sp.add_m || 0);
+                    specialInstalAdd += (sp.add_i || 0);
+                }
+                // Input Quantidade (ex: IPs)
+                else if (sp.tipo === 'input_qtd') {
+                    const inp = document.getElementById(`val_${sp.id}`);
+                    const qtd = parseFloat(inp ? inp.value : 0) || 0;
+                    specialMensalAdd += (qtd * sp.unit_price);
+                }
+            }
+        });
+    }
+
+    // 4. Cálculo Final
+    // Base * Multiplicadores Globais + Adicionais Fixos
+    const finalM_Clean = (mensalObj.c * fatorGlobal) + extraData + specialMensalAdd;
+    const finalM_Full = (mensalObj.f * fatorGlobal) + extraData + specialMensalAdd;
+
+    const finalI_Clean = instalObj.c + custoRural + specialInstalAdd;
+    const finalI_Full = instalObj.f + custoRural + specialInstalAdd;
+
+    // 5. Exibição
     if (impostoMode === 'sem') {
         lblMensal.innerText = formatMoney(finalM_Clean);
         lblInstal.innerText = formatMoney(finalI_Clean);
-        if (obsMensal) obsMensal.innerText = "Valor SEM impostos";
-        if (obsInstal) obsInstal.innerText = "Valor SEM impostos";
+        if (obsMensal) obsMensal.innerText = "Sem Impostos (Clean)";
+        if (obsInstal) obsInstal.innerText = "Sem Impostos (Clean)";
     } else if (impostoMode === 'ambos') {
         lblMensal.innerText = formatMoney(finalM_Full);
         lblInstal.innerText = formatMoney(finalI_Full);
-        if (obsMensal) obsMensal.innerText = `S/ Impostos: ${formatMoney(finalM_Clean)}`;
-        if (obsInstal) obsInstal.innerText = `S/ Impostos: ${formatMoney(finalI_Clean)}`;
+        if (obsMensal) obsMensal.innerText = `Clean: ${formatMoney(finalM_Clean)}`;
+        if (obsInstal) obsInstal.innerText = `Clean: ${formatMoney(finalI_Clean)}`;
     } else {
         lblMensal.innerText = formatMoney(finalM_Full);
         lblInstal.innerText = formatMoney(finalI_Full);
+        if (obsMensal) obsMensal.innerText = "Com Impostos";
+        if (obsInstal) obsInstal.innerText = "Com Impostos";
     }
 
     generateEmail(op, prod, speed, uf, dur, finalM_Clean, finalI_Clean);
@@ -300,35 +375,27 @@ function formatMoney(v) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-// --- GERADOR DE EMAIL ---
 function generateEmail(op, prod, speed, uf, dur, cM, cI) {
-    if (!op || !speed) {
-        document.getElementById('emailTemplate').value = "";
-        return;
-    }
-
     const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
-    const produtoCompleto = `${op} ${prod} ${sLabel} (${uf})`;
-
     const txt = `Olá, tudo bem?
 
-Segue abaixo a cotação conforme solicitado. Nossa proposta possui validade de 30 dias.
+Segue abaixo a cotação conforme solicitado. Validade de 30 dias.
 
-Produto: ${produtoCompleto}
+Produto: ${op} ${prod} ${sLabel} (${uf})
 Valor mensal s/impostos: ${formatMoney(cM)}
 Valor de instalação s/impostos: ${formatMoney(cI)}
 Prazo de instalação: 60 Dias
 Prazo de Contrato: ${dur} Meses
 
-Ficamos à disposição para quaisquer dúvidas ou ajustes necessários.
+Ficamos à disposição.
 
 Atenciosamente,`;
-
     document.getElementById('emailTemplate').value = txt;
 }
 
 function copyEmail() {
     const el = document.getElementById('emailTemplate');
+    if (!el.value) return;
     el.select();
     document.execCommand('copy');
     alert("Cotação copiada!");

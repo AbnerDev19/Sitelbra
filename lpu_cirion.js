@@ -15,24 +15,45 @@ const CIRION_RULES = {
     // Mapeamento de Estados por Grupo (Conforme Cabeçalhos dos Prints)
     groups: {
         // GRUPO 1: AL BA CE DF ES GO MA MT MS MG PB PR PE PI RN RS SC SP SE
-        "AL": 1, "BA": 1, "CE": 1, "DF": 1, "ES": 1, "GO": 1, "MA": 1, "MT": 1,
-        "MS": 1, "MG": 1, "PB": 1, "PR": 1, "PE": 1, "PI": 1, "RN": 1, "RS": 1,
-        "SC": 1, "SP": 1, "SE": 1,
+        "AL": 1,
+        "BA": 1,
+        "CE": 1,
+        "DF": 1,
+        "ES": 1,
+        "GO": 1,
+        "MA": 1,
+        "MT": 1,
+        "MS": 1,
+        "MG": 1,
+        "PB": 1,
+        "PR": 1,
+        "PE": 1,
+        "PI": 1,
+        "RN": 1,
+        "RS": 1,
+        "SC": 1,
+        "SP": 1,
+        "SE": 1,
 
         // GRUPO 2: PA TO
-        "PA": 2, "TO": 2,
+        "PA": 2,
+        "TO": 2,
 
         // GRUPO 3: AC AP AM RO
-        "AC": 3, "AP": 3, "AM": 3, "RO": 3,
+        "AC": 3,
+        "AP": 3,
+        "AM": 3,
+        "RO": 3,
 
         // GRUPO 4: RJ RR
-        "RJ": 4, "RR": 4
+        "RJ": 4,
+        "RR": 4
     },
 
     // Decaimento de Prazo (Baseado na comparação dos valores absolutos dos prints)
     decay: {
-        ip: { 12: 1.00, 24: 0.8333, 36: 0.7916, 60: 0.7719 },
-        l2: { 12: 1.00, 24: 0.9520, 36: 0.9040, 60: 0.8600 },
+        ip: { 12: 1.00, 24: 0.8333, 36: 0.7916, 48: 1, 60: 0.7719 },
+        l2: { 12: 1.00, 24: 0.9520, 36: 0.9040, 48: 1, 60: 0.8600 },
         // BDL: 24m(163.37)/12m(171.53)=0.952 | 36m(155.20)/12m(171.53)=0.9048
         bdl: { 12: 1.00, 24: 0.9524, 36: 0.9048 }
     }

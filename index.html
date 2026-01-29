@@ -7,6 +7,7 @@
     <title>Sitelbra Wholesale | Calculadora Pro</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
@@ -17,66 +18,43 @@
                 <span>Sitelbra Wholesale</span>
             </div>
             <div class="scroll-content">
-                <div class="section-title">PARÂMETROS DO LINK</div>
-                <div class="form-group">
-                    <label>Operadora</label>
-                    <div class="select-wrapper">
-                        <select id="selOperadora"><option value="">Carregando...</option></select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Produto</label>
-                        <div class="select-wrapper">
-                            <select id="selProduto"><option value="">...</option></select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Prazo</label>
-                        <div class="select-wrapper">
-                            <select id="selPrazo">
-                                <option value="12">12 Meses</option>
-                                <option value="24">24 Meses</option>
-                                <option value="36" selected>36 Meses</option>
-                                <option value="48">48 Meses</option>
-                                <option value="60">60 Meses</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-group" style="display:none;">
-                    <label>UF (Sistema)</label>
-                    <select id="selUF"><option value="">...</option></select>
-                </div>
+
+                <input type="hidden" id="selOperadora">
+                <input type="hidden" id="selProduto">
+                <input type="hidden" id="selUF">
+                <input type="hidden" id="selVelocidade">
+                <input type="hidden" id="selPrazo" value="36">
+
+                <div class="section-title">CONFIGURAÇÕES</div>
 
                 <div class="form-group">
-                    <label>Velocidade</label>
-                    <div class="select-wrapper">
-                        <select id="selVelocidade" disabled><option value="">Selecione UF ao lado...</option></select>
+                    <label>Prazo de Contrato</label>
+                    <div id="visualPrazoGrid" class="pill-grid-sidebar">
                     </div>
                 </div>
 
-                <div class="form-group" style="background: #eef; padding: 10px; border-radius: 6px; margin-top: 10px;">
-                    <label style="color: #333; font-weight: 600;">Visualização de Impostos</label>
+                <div class="divider"></div>
+
+                <div class="form-group" style="background: #eef; padding: 12px; border-radius: 8px;">
+                    <label style="color: #333; font-weight: 600; font-size: 0.8rem; margin-bottom: 8px;">Visualização de Valores</label>
                     <div class="select-wrapper">
                         <select id="selImpostoMode">
-                            <option value="com" selected>Com Impostos (Final)</option>
-                            <option value="sem">Sem Impostos (Clean)</option>
-                            <option value="ambos">Ambos (Detalhado)</option>
+                            <option value="sem" selected>Sem Impostos (Clean)</option>
+                            <option value="com">Com Impostos (Final)</option>
+                            <option value="ambos">Detalhado (Ambos)</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="divider"></div>
-                <div class="section-title">ADICIONAIS E TIPO DE LOCAL</div>
+                <div class="section-title">ADICIONAIS DE LOCAL</div>
                 <div class="toggles-list">
                     <label class="toggle-item"><input type="checkbox" id="checkShopping"><span class="toggle-label">Shopping Center (x2)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkAeroporto"><span class="toggle-label">Aeroporto (x3)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkIndustria"><span class="toggle-label">Indústria/Galpão (x1.4)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkDatacenter"><span class="toggle-label">Datacenter (+ Cross)</span></label>
-                    <label class="toggle-item"><input type="checkbox" id="checkRural"><span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra Dedicada</span></label>
-                    
+                    <label class="toggle-item"><input type="checkbox" id="checkRural"><span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra</span></label>
+
                     <div id="ruralOptions" class="hidden" style="margin-left: 24px; margin-top: 5px;">
                         <input type="number" id="inputDistancia" placeholder="Distância (metros)" class="input-text" style="font-size: 0.8rem;">
                     </div>
@@ -85,49 +63,92 @@
                 <div class="divider"></div>
                 <div class="section-title">PROJETOS ESPECIAIS</div>
                 <div id="specialsContainer"></div>
+
             </div>
         </aside>
 
         <main class="main-content">
-            <div class="split-layout">
-                <section class="uf-area">
-                    <div class="section-title" style="margin-top:0;">SELECIONE O ESTADO</div>
-                    <div id="visualUFGrid" class="uf-grid-wrapper">
+            <header>
+                <h1>Nova Cotação</h1>
+                <div class="date-badge" id="currentDate">--/--/----</div>
+            </header>
+
+            <div class="tri-layout">
+
+                <section class="col-section">
+                    <div class="step-header">
+                        <span class="step-num">1</span>
+                        <span>Rede & Local</span>
+                    </div>
+
+                    <div class="visual-card">
+                        <span class="card-label">SELECIONE A OPERADORA</span>
+                        <div id="visualOpGrid" class="pill-grid"></div>
+                    </div>
+
+                    <div class="visual-card" style="flex: 1;">
+                        <span class="card-label">SELECIONE O ESTADO</span>
+                        <div id="visualUFGrid" class="uf-grid-wrapper"></div>
+                        <div class="uf-legend">
+                            <div class="legend-item"><span class="dot grp1"></span> G1</div>
+                            <div class="legend-item"><span class="dot grp2"></span> G2</div>
+                            <div class="legend-item"><span class="dot grp3"></span> G3</div>
+                            <div class="legend-item"><span class="dot grp4"></span> G4</div>
                         </div>
-                    
-                    <div class="uf-legend">
-                        <div class="legend-item"><span class="dot grp1"></span> G1 (Geral)</div>
-                        <div class="legend-item"><span class="dot grp2"></span> G2 (Sul/Sudeste)</div>
-                        <div class="legend-item"><span class="dot grp3"></span> G3 (Norte)</div>
-                        <div class="legend-item"><span class="dot grp4"></span> G4 (Críticos)</div>
                     </div>
                 </section>
 
-                <section class="work-area">
-                    <header>
-                        <h1>Cotação Comercial</h1>
-                        <div class="date-badge" id="currentDate">--/--/----</div>
-                    </header>
-                    <div class="results-grid">
-                        <div class="result-card primary">
-                            <span class="result-label">MENSALIDADE TOTAL</span>
-                            <div class="result-value" id="resMensal">R$ 0,00</div>
-                            <small id="resMensalObs" style="color: #666; font-size: 0.8rem;"></small>
-                        </div>
-                        <div class="result-card secondary">
-                            <span class="result-label">INSTALAÇÃO TOTAL</span>
-                            <div class="result-value" id="resInstalacao">R$ 0,00</div>
-                            <small id="resInstalacaoObs" style="color: #666; font-size: 0.8rem;"></small>
+                <section class="col-section">
+                    <div class="step-header">
+                        <span class="step-num">2</span>
+                        <span>Produto & Capacidade</span>
+                    </div>
+
+                    <div class="visual-card">
+                        <span class="card-label">SELECIONE O PRODUTO</span>
+                        <div id="visualProdGrid" class="pill-grid">
+                            <div class="empty-state-small">Selecione Operadora primeiro</div>
                         </div>
                     </div>
-                    <div class="email-container">
-                        <div class="section-header">
-                            <h3>Texto para Proposta</h3>
-                            <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span> Copiar</button>
+
+                    <div class="visual-card" style="flex: 1; display: flex; flex-direction: column;">
+                        <span class="card-label">SELECIONE A VELOCIDADE</span>
+                        <div id="visualSpeedGrid" class="speed-grid-wrapper" style="flex:1;">
+                            <div class="empty-state-msg">
+                                <span class="material-symbols-rounded">block</span> Selecione UF e Produto para ver velocidades.
+                            </div>
                         </div>
-                        <textarea id="emailTemplate" readonly placeholder="Selecione um Estado ao lado para iniciar..."></textarea>
                     </div>
                 </section>
+
+                <section class="col-section result-section">
+                    <div class="step-header">
+                        <span class="step-num">3</span>
+                        <span>Resultado</span>
+                    </div>
+
+                    <div class="results-container">
+                        <div class="result-card primary">
+                            <span class="result-label">MENSALIDADE</span>
+                            <div class="result-value" id="resMensal">R$ 0,00</div>
+                            <small id="resMensalObs">Sem Impostos</small>
+                        </div>
+                        <div class="result-card secondary">
+                            <span class="result-label">INSTALAÇÃO</span>
+                            <div class="result-value" id="resInstalacao">R$ 0,00</div>
+                            <small id="resInstalacaoObs">Sem Impostos</small>
+                        </div>
+
+                        <div class="email-wrapper">
+                            <div class="section-header">
+                                <h3>Proposta Comercial</h3>
+                                <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span></button>
+                            </div>
+                            <textarea id="emailTemplate" readonly></textarea>
+                        </div>
+                    </div>
+                </section>
+
             </div>
         </main>
     </div>

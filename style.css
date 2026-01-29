@@ -25,13 +25,11 @@ body {
     font-family: var(--font);
     height: 100vh;
     overflow: hidden;
-    /* Evita scroll na pagina inteira */
 }
 
 .app-layout {
     display: grid;
     grid-template-columns: 320px 1fr;
-    /* Sidebar fixa, resto fluido */
     height: 100vh;
 }
 
@@ -71,90 +69,41 @@ body {
 }
 
 
-/* Upload Area Compacta */
-
-.db-status-card {
-    background: #fff;
-    border: 1px dashed #ccc;
-    padding: 12px;
-    border-radius: var(--radius);
-    margin-bottom: 24px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.db-status-card:hover {
-    border-color: var(--accent);
-    background: var(--accent-light);
-}
-
-.status-indicator {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.icon-db {
-    color: var(--text-secondary);
-}
-
-.status-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.status-text span {
-    font-weight: 600;
-    font-size: 0.85rem;
-}
-
-.status-text small {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-
-/* Form Elements */
+/* Form Elements Sidebar */
 
 .section-title {
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.7rem;
+    font-weight: 700;
     color: var(--text-secondary);
     margin-bottom: 12px;
     margin-top: 10px;
     letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .form-group {
-    margin-bottom: 16px;
-}
-
-.form-row {
-    display: flex;
-    gap: 10px;
-}
-
-.form-row .form-group {
-    flex: 1;
+    margin-bottom: 20px;
 }
 
 label {
     display: block;
     font-size: 0.85rem;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     color: var(--text-primary);
+    font-weight: 500;
 }
 
 .select-wrapper select,
 .input-text {
     width: 100%;
-    padding: 8px 10px;
+    padding: 8px;
     border: 1px solid #ddd;
     border-radius: 6px;
     background: #fff;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-primary);
     outline: none;
+    transition: border-color 0.2s;
 }
 
 .select-wrapper select:focus,
@@ -181,10 +130,10 @@ label {
 .toggle-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     cursor: pointer;
-    font-size: 0.9rem;
-    padding: 4px 0;
+    font-size: 0.85rem;
+    padding: 2px 0;
 }
 
 .toggle-item input {
@@ -196,15 +145,48 @@ label {
 }
 
 
+/* Botões Prazo (Sidebar) */
+
+.pill-grid-sidebar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.pill-btn-sm {
+    padding: 6px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pill-btn-sm:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+.pill-btn-sm.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+
 /* --- MAIN CONTENT --- */
 
 .main-content {
-    padding: 40px 60px;
+    padding: 30px 40px;
+    /* Reduzi um pouco o padding externo */
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    max-width: 1000px;
-    margin: 0 auto;
     width: 100%;
 }
 
@@ -212,11 +194,11 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 40px;
+    margin-bottom: 24px;
 }
 
 h1 {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     margin: 0;
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -224,28 +206,389 @@ h1 {
 
 .date-badge {
     background: var(--bg-sidebar);
-    padding: 6px 12px;
+    padding: 4px 12px;
     border-radius: 20px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
+    font-weight: 600;
 }
 
 
-/* Results Grid */
+/* --- LAYOUT 3 COLUNAS --- */
 
-.results-grid {
+.tri-layout {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    /* Gap ajustado para não ficar tão separado */
+    align-items: start;
+    /* Importante para não esticar a altura */
+}
+
+.col-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--bg-sidebar);
+    text-transform: uppercase;
+}
+
+.step-num {
+    background: var(--text-primary);
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+
+/* Visual Cards */
+
+.visual-card {
+    background: #fff;
+    border: 1px solid var(--line-color);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+}
+
+.card-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+
+/* --- GRID ESTADOS (UF) COMPACTO --- */
+
+.uf-grid-wrapper {
+    display: grid;
+    /* Mudei para 6 colunas para ficarem menores */
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.uf-square {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    /* Fonte menor */
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.uf-square:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.1);
+}
+
+.uf-square.active {
+    border-color: #333;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+}
+
+
+/* Cores UF */
+
+.uf-square.grp1 {
+    background-color: #009688;
+}
+
+.uf-square.grp2 {
+    background-color: #66BB6A;
+}
+
+.uf-square.grp3 {
+    background-color: #FBC02D;
+    color: #333;
+}
+
+.uf-square.grp4 {
+    background-color: #EF5350;
+}
+
+
+/* Legenda UF Compacta */
+
+.uf-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-top: auto;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot.grp1 {
+    background: #009688;
+}
+
+.dot.grp2 {
+    background: #66BB6A;
+}
+
+.dot.grp3 {
+    background: #FBC02D;
+}
+
+.dot.grp4 {
+    background: #EF5350;
+}
+
+
+/* --- BOTÕES PILL (OPERADORA E PRODUTO) --- */
+
+.pill-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    /* 2 colunas fixas para organização */
+    gap: 8px;
+}
+
+.pill-btn {
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pill-btn:hover {
+    border-color: var(--accent);
+    background: #fafafa;
+}
+
+.pill-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(217, 115, 13, 0.25);
+}
+
+.pill-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f0f0f0;
+    color: #999;
+    border-color: #ddd;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+
+/* --- GRID VELOCIDADE --- */
+
+
+/* ... (MANTENHA O CSS ANTERIOR ATÉ A PARTE DO GRID VELOCIDADE) ... */
+
+
+/* --- GRID VELOCIDADE --- */
+
+.speed-grid-wrapper {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    align-content: start;
+}
+
+.speed-square {
+    padding: 12px 4px;
+    background: #f4f4f4;
+    /* Fundo padrão */
+    border: 2px solid transparent;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.speed-square small {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.speed-square:hover {
+    background: #e9e9e9;
+    transform: translateY(-2px);
+}
+
+.speed-square.active {
+    background: var(--text-primary);
+    color: #fff;
+    border-color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.speed-square.active small {
+    color: #ccc;
+}
+
+
+/* NOVO: Estilo Desabilitado (Visível mas intocável) */
+
+.speed-square.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f0f0f0;
+    color: #aaa;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+
+/* --- COLUNA RESULTADO (MAIS DESTAQUE) --- */
+
+.result-section {
+    background: #fff;
+    /* Fundo branco para destacar mais */
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid var(--line-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    /* Sombra mais forte */
+}
+
+.results-container {
+    display: flex;
+    flex-direction: column;
     gap: 24px;
-    margin-bottom: 40px;
+    /* Mais espaço entre os cards */
+}
+
+.result-card {
+    background: #FAFAFA;
+    /* Fundo leve para o card interno */
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 20px;
+    transition: transform 0.2s;
+}
+
+.result-card:hover {
+    transform: scale(1.02);
+    /* Leve zoom ao passar o mouse */
+    border-color: #ddd;
+}
+
+.result-label {
+    display: block;
+    font-size: 0.85rem;
+    /* Fonte maior */
+    font-weight: 800;
+    /* Mais negrito */
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.result-value {
+    font-size: 2.6rem;
+    /* AUMENTADO (era 1.8 ou 2.0) */
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.result-card.primary .result-value {
+    color: var(--accent);
+}
+
+
+/* Pequeno ajuste no rodapé do card (Clean/Impostos) */
+
+.result-card small {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #888;
+}
+
+
+/* ... (RESTO DO CSS IGUAL) ... */
+
+
+/* --- COLUNA RESULTADO --- */
+
+.result-section {
+    background: #FAFAFA;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px dashed #d0d0d0;
+}
+
+.results-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .result-card {
     background: #fff;
     border: 1px solid var(--line-color);
-    border-radius: 12px;
-    padding: 24px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-radius: 8px;
+    padding: 16px;
+    /* Mais compacto */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .result-label {
@@ -253,12 +596,13 @@ h1 {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 8px;
-    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
 }
 
 .result-value {
-    font-size: 2rem;
+    font-size: 1.8rem;
+    /* Fonte um pouco menor */
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -267,25 +611,17 @@ h1 {
     color: var(--accent);
 }
 
-
-/* Email Section */
-
-.email-container {
+.email-wrapper {
     flex: 1;
     display: flex;
     flex-direction: column;
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+    margin-top: 10px;
 }
 
 .section-header h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
     margin: 0;
-    font-size: 1rem;
 }
 
 .btn-icon {
@@ -295,142 +631,84 @@ h1 {
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 0.85rem;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
     color: var(--text-primary);
-    transition: all 0.2s;
 }
 
 .btn-icon:hover {
     background: var(--bg-sidebar);
 }
 
-.btn-icon .material-symbols-rounded {
-    font-size: 16px;
-}
-
 textarea {
     width: 100%;
-    flex: 1;
-    /* Ocupa o resto da altura */
-    min-height: 250px;
+    min-height: 200px;
+    /* Altura fixa mínima */
     border: 1px solid var(--line-color);
     border-radius: var(--radius);
-    padding: 20px;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-    font-size: 0.9rem;
+    padding: 16px;
+    font-family: 'SF Mono', 'Monaco', monospace;
+    font-size: 0.8rem;
     line-height: 1.5;
     resize: none;
     outline: none;
-    background: #FAFAFA;
+    background: #fff;
 }
 
 textarea:focus {
     border-color: var(--accent);
-    background: #fff;
 }
 
-/* Novo Seletor de UF Central */
-/* ... (estilos anteriores mantidos até a seção split-layout) ... */
 
-/* --- NOVO LAYOUT DIVIDIDO --- */
-.split-layout {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 40px;
-    height: 100%;
-    align-items: start;
-}
+/* Estados Vazios */
 
-/* Área da UF (Esquerda) */
-.uf-area {
-    background: #fff;
-    padding: 20px;
-    border: 1px solid var(--line-color);
-    border-radius: 12px;
-    position: sticky;
-    top: 0;
-    /* Garante que não colapse se vazio */
-    min-height: 300px; 
-}
-
-.uf-grid-wrapper {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 20px;
-}
-
-.uf-square {
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    font-weight: 700;
-    font-size: 0.85rem;
-    cursor: pointer;
-    border: 2px solid transparent;
-    transition: all 0.2s;
-    color: #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.uf-square:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    filter: brightness(1.1);
-}
-
-.uf-square.active {
-    border-color: #333;
-    transform: scale(1.05);
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.2);
-    z-index: 1;
-}
-
-/* Área de Trabalho (Direita) */
-.work-area {
+.empty-state-msg {
+    grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
-    min-width: 0; /* Previne overflow */
-}
-
-/* Cores por Grupo */
-.uf-square.grp1 { background-color: #009688; }
-.uf-square.grp2 { background-color: #66BB6A; }
-/* Cor Amarela mais escura conforme solicitação prévia */
-.uf-square.grp3 { background-color: #FBC02D; color: #333; }
-.uf-square.grp4 { background-color: #EF5350; }
-
-/* Legenda */
-.uf-legend {
-    display: flex;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
     gap: 10px;
-    font-size: 0.75rem;
+    padding: 30px;
+    background: #fafafa;
+    border: 1px dashed #ccc;
+    border-radius: 8px;
     color: var(--text-secondary);
+    font-size: 0.85rem;
+    text-align: center;
 }
 
-.legend-item { display: flex; align-items: center; gap: 5px; }
+.empty-state-small {
+    grid-column: 1 / -1;
+    color: #999;
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 10px;
+    font-style: italic;
+}
 
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-.dot.grp1 { background: #009688; }
-.dot.grp2 { background: #66BB6A; }
-.dot.grp3 { background: #FBC02D; }
-.dot.grp4 { background: #EF5350; }
 
 /* Responsividade */
+
 @media (max-width: 1100px) {
-    .split-layout {
+    .tri-layout {
+        grid-template-columns: 1fr 1fr;
+    }
+    .result-section {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-layout {
         grid-template-columns: 1fr;
     }
-    .uf-area {
-        position: static;
-        margin-bottom: 20px;
+    .sidebar {
+        display: none;
+        /* Ou transformar em menu mobile */
     }
-    .uf-grid-wrapper {
-        grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    .tri-layout {
+        grid-template-columns: 1fr;
     }
 }
