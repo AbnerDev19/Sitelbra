@@ -1,90 +1,49 @@
 // specials.js
-// CONFIGURAÇÃO DOS PROJETOS ESPECIAIS
-// mul: Multiplicador (ex: 1.2 = +20%)
-// add_m: Valor fixo mensal a somar
-// add_i: Valor fixo instalação a somar
-// input: Se true, pede um valor/quantidade ao usuário
+// ATUALIZADO: Novas Regras de Negócio
+// As regras de cálculo complexas estão centralizadas no script.js.
+// Este arquivo serve para gerar os checkboxes na interface.
 
 window.SPECIALS_DB = [
-    // --- MULTIPLICADORES DE RISCO / LOCAL ---
+    // --- SITUAÇÕES DE LOCALIZAÇÃO ---
     {
-        id: 'favela',
-        nome: 'Área de Risco / Favela (x2)',
-        tipo: 'mul',
-        mul: 2.0,
-        desc: 'Rede em área de risco'
+        id: 'fora_urbana',
+        nome: 'Fora da Zona Urbana (x1.2)',
+        tipo: 'simple', // Lógica tratada no script.js
+        desc: 'Afastado do centro'
     },
     {
         id: 'cid_peq',
-        nome: 'Cidade Pequena (<30k hab)',
-        tipo: 'mul',
-        mul: 1.1,
-        desc: 'Logística complexa'
-    },
-
-    // --- TÉCNICO / SLA ---
-    {
-        id: 'sla',
-        nome: 'SLA Estendido (>99.4%)',
-        tipo: 'mul',
-        mul: 1.2,
-        desc: 'Alta disponibilidade'
+        nome: 'Cidade Pequena (x1.4)',
+        tipo: 'simple',
+        desc: 'Menos de 30k hab'
     },
     {
-        id: 'dupla',
-        nome: 'Dupla Abordagem (x2)',
-        tipo: 'mul',
-        mul: 2.0,
-        desc: 'Redundância total'
+        id: 'favela',
+        nome: 'Área de Risco / Favela / Subt.',
+        tipo: 'simple',
+        desc: 'Risco + Adicionais Fixos'
     },
 
-    // --- ADICIONAIS FIXOS ---
+    // --- PARCEIROS / PROVEDORES ---
+    {
+        id: 'prov_rtm',
+        nome: 'Provedores (RTM/Avato/Tecpac)',
+        tipo: 'simple', // x1.2
+        desc: 'Parceiros Específicos'
+    },
+
+    // --- PRODUTOS ADICIONAIS ---
     {
         id: 'radio',
-        nome: 'Backup Rádio',
-        tipo: 'add_m',
-        add_m: 400.0,
-        add_i: 1000.0,
-        desc: 'Link Rádio Homologado'
+        nome: 'Backup Rádio (+Inst)',
+        tipo: 'simple',
+        desc: 'Instalação + 6k'
     },
-    {
-        id: 'comodato',
-        nome: 'Equipamento (Comodato)',
-        tipo: 'add_m',
-        add_m: 150.0,
-        desc: 'Aluguel Router'
-    },
-    {
-        id: 'mtu',
-        nome: 'BDL - MTU 1500',
-        tipo: 'add_m',
-        add_m: 0,
-        desc: 'Configuração Jumbo'
-    },
-
-    // --- COM INPUT (QUANTIDADE) ---
     {
         id: 'ips',
-        nome: 'IPs Fixos (R$ 50/un)',
-        tipo: 'input_qtd',
-        unit_price: 50.0,
+        nome: 'IPs Fixos',
+        tipo: 'input_qtd', // Input numérico
         input: true,
-        desc: 'Quantidade de IPs'
-    },
-
-    // --- OUTROS ---
-    {
-        id: 'fibra500',
-        nome: 'Fibra < 500m',
-        tipo: 'mul',
-        mul: 1.0,
-        desc: 'Facilidade técnica'
-    },
-    {
-        id: 'prov',
-        nome: 'RTM/Avato/Provedores',
-        tipo: 'mul',
-        mul: 1.0,
-        desc: 'Parceiros específicos'
+        desc: 'Calculadora de IPs'
     }
 ];

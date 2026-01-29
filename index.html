@@ -18,6 +18,17 @@
                 <span>Sitelbra Wholesale</span>
             </div>
             <div class="scroll-content">
+                <div class="visual-card" style="border: 1px solid var(--accent); background: #fffcf5; margin-bottom: 20px;">
+                    <span class="card-label" style="color: var(--accent);">Análise Geográfica Real</span>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <input type="text" id="aiCoords" class="input-text" placeholder="Latitude, Longitude">
+                        <small style="color: #999; font-size: 0.7rem;">Pressione Enter para buscar</small>
+                    </div>
+                    <button id="btnSmartAnalysis" class="pill-btn" style="width: 100%; background: var(--accent); color: white; border:none; font-weight: bold;">
+                        <span id="aiBtnText">Consultar Viabilidade</span>
+                        <div id="aiLoader" class="hidden">Analisando Mapa...</div>
+                    </button>
+                </div>
 
                 <input type="hidden" id="selOperadora">
                 <input type="hidden" id="selProduto">
@@ -26,15 +37,12 @@
                 <input type="hidden" id="selPrazo" value="36">
 
                 <div class="section-title">CONFIGURAÇÕES</div>
-
                 <div class="form-group">
                     <label>Prazo de Contrato</label>
-                    <div id="visualPrazoGrid" class="pill-grid-sidebar">
-                    </div>
+                    <div id="visualPrazoGrid" class="pill-grid-sidebar"></div>
                 </div>
 
                 <div class="divider"></div>
-
                 <div class="form-group" style="background: #eef; padding: 12px; border-radius: 8px;">
                     <label style="color: #333; font-weight: 600; font-size: 0.8rem; margin-bottom: 8px;">Visualização de Valores</label>
                     <div class="select-wrapper">
@@ -54,7 +62,6 @@
                     <label class="toggle-item"><input type="checkbox" id="checkIndustria"><span class="toggle-label">Indústria/Galpão (x1.4)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkDatacenter"><span class="toggle-label">Datacenter (+ Cross)</span></label>
                     <label class="toggle-item"><input type="checkbox" id="checkRural"><span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural / Fibra</span></label>
-
                     <div id="ruralOptions" class="hidden" style="margin-left: 24px; margin-top: 5px;">
                         <input type="number" id="inputDistancia" placeholder="Distância (metros)" class="input-text" style="font-size: 0.8rem;">
                     </div>
@@ -63,7 +70,6 @@
                 <div class="divider"></div>
                 <div class="section-title">PROJETOS ESPECIAIS</div>
                 <div id="specialsContainer"></div>
-
             </div>
         </aside>
 
@@ -72,20 +78,13 @@
                 <h1>Nova Cotação</h1>
                 <div class="date-badge" id="currentDate">--/--/----</div>
             </header>
-
             <div class="tri-layout">
-
                 <section class="col-section">
-                    <div class="step-header">
-                        <span class="step-num">1</span>
-                        <span>Rede & Local</span>
-                    </div>
-
+                    <div class="step-header"><span class="step-num">1</span><span>Rede & Local</span></div>
                     <div class="visual-card">
                         <span class="card-label">SELECIONE A OPERADORA</span>
                         <div id="visualOpGrid" class="pill-grid"></div>
                     </div>
-
                     <div class="visual-card" style="flex: 1;">
                         <span class="card-label">SELECIONE O ESTADO</span>
                         <div id="visualUFGrid" class="uf-grid-wrapper"></div>
@@ -99,32 +98,25 @@
                 </section>
 
                 <section class="col-section">
-                    <div class="step-header">
-                        <span class="step-num">2</span>
-                        <span>Produto & Capacidade</span>
-                    </div>
-
+                    <div class="step-header"><span class="step-num">2</span><span>Produto & Capacidade</span></div>
                     <div class="visual-card">
                         <span class="card-label">SELECIONE O PRODUTO</span>
                         <div id="visualProdGrid" class="pill-grid">
                             <div class="empty-state-small">Selecione Operadora primeiro</div>
                         </div>
                     </div>
-
                     <div class="visual-card" style="flex: 1; display: flex; flex-direction: column;">
                         <span class="card-label">SELECIONE A VELOCIDADE</span>
                         <div id="visualSpeedGrid" class="speed-grid-wrapper" style="flex:1;">
-                            <div class="empty-state-msg">
-                                <span class="material-symbols-rounded">block</span> Selecione UF e Produto para ver velocidades.
-                            </div>
+                            <div class="empty-state-msg"><span class="material-symbols-rounded">block</span> Selecione UF e Produto.</div>
                         </div>
                     </div>
                 </section>
 
                 <section class="col-section result-section">
-                    <div class="step-header">
-                        <span class="step-num">3</span>
-                        <span>Resultado</span>
+                    <div class="step-header"><span class="step-num">3</span><span>Resultado & Análise</span></div>
+
+                    <div id="analysisReport" class="hidden" style="background: #fff8e1; border: 1px solid #eec054; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; color: #5a4a1b; line-height: 1.4;">
                     </div>
 
                     <div class="results-container">
@@ -138,17 +130,20 @@
                             <div class="result-value" id="resInstalacao">R$ 0,00</div>
                             <small id="resInstalacaoObs">Sem Impostos</small>
                         </div>
-
                         <div class="email-wrapper">
                             <div class="section-header">
                                 <h3>Proposta Comercial</h3>
                                 <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span></button>
                             </div>
                             <textarea id="emailTemplate" readonly></textarea>
+
+                            <button id="btnMagicAI" class="pill-btn" style="margin-top: 10px; background: #2e2e2e; color: #fff; border: none; width: 100%;">
+                                <span class="material-symbols-rounded" style="font-size:16px; margin-right:5px;">auto_awesome</span>
+                                Melhorar com IA
+                            </button>
                         </div>
                     </div>
                 </section>
-
             </div>
         </main>
     </div>
