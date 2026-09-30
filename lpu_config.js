@@ -10,15 +10,37 @@ window.addEntry = function(operadora, produto, uf, prazo, velocidade, mClean, mF
         u: uf,
         d: parseInt(prazo),
         s: parseInt(velocidade),
+        // 4 casas para não perder precisão nos multiplicadores dos valores especiais
         m: {
-            c: parseFloat(mClean.toFixed(2)),
-            f: parseFloat(mFull.toFixed(2))
+            c: parseFloat(mClean.toFixed(4)),
+            f: parseFloat(mFull.toFixed(4))
         },
         i: {
-            c: parseFloat(iClean.toFixed(2)),
-            f: parseFloat(iFull.toFixed(2))
+            c: parseFloat(iClean.toFixed(4)),
+            f: parseFloat(iFull.toFixed(4))
         }
     });
+};
+
+// Carrega tabelas geradas direto das planilhas LPU (valores exatos, sem decaimento aproximado).
+// tables[produto] = { ufg: {UF: grupo}, d: { prazo: { grupo: { velocidade: [mS, iS, mC, iC] } } } }
+window.loadLpuTables = function(operadora, tables) {
+    Object.keys(tables).forEach(produto => {
+        const t = tables[produto];
+        Object.keys(UF_GROUPS).forEach(uf => {
+            const g = t.ufg[uf];
+            if (!g) return;
+            Object.keys(t.d).forEach(prazo => {
+                const porVel = t.d[prazo][g];
+                if (!porVel) return;
+                Object.keys(porVel).forEach(vel => {
+                    const [mS, iS, mC, iC] = porVel[vel];
+                    window.addEntry(operadora, produto, uf, prazo, vel, mS, mC, iS, iC);
+                });
+            });
+        });
+    });
+    console.log('Ofertas ' + operadora + ' carregadas (valores da planilha).');
 };
 
 // PADRONIZAÇÃO: 1: DF | 2: Geral | 3: Norte/PA/TO | 4: RJ/RR (Críticos)

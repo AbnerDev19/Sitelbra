@@ -68,7 +68,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnMagic) btnMagic.addEventListener('click', callGeminiAI);
 });
 
-// --- CÁLCULO FINANCEIRO (LÓGICA CORRIGIDA) ---
+// --- CÁLCULO FINANCEIRO ---
+// A regra de negócio está em pricing.js (espelho das abas "Projeto Especial" das planilhas LPU).
+
+function readOptions() {
+    const chk = id => { const el = document.getElementById(id); return !!(el && el.checked); };
+    return {
+        shopping: chk('checkShopping'),
+        aeroporto: chk('checkAeroporto'),
+        industria: chk('checkIndustria'),
+        datacenter: chk('checkDatacenter'),
+        rural: chk('checkRural'),
+        distancia: (chk('checkRural') && document.getElementById('inputDistancia')) ? document.getElementById('inputDistancia').value : 0,
+        foraUrbana: isChecked('fora_urbana'),
+        cidPeq: isChecked('cid_peq'),
+        favela: isChecked('favela'),
+        fibraCurta: isChecked('fibra_curta'),
+        provedor: isChecked('prov_rtm'),
+        sla: isChecked('sla'),
+        dupla: isChecked('dupla'),
+        radio: isChecked('radio'),
+        comodato: isChecked('comodato'),
+        mtu: isChecked('mtu'),
+        qtdIp: isChecked('ips') ? (document.getElementById('val_ips') ? document.getElementById('val_ips').value : 0) : 0
+    };
+}
 
 function calculate() {
     const op = document.getElementById('selOperadora').value;
@@ -87,151 +111,52 @@ function calculate() {
     if (lblMensal) lblMensal.innerText = "R$ 0,00";
     if (lblInstal) lblInstal.innerText = "R$ 0,00";
     if (obsMensal) obsMensal.innerText = "Aguardando seleção...";
+    if (obsInstal) obsInstal.innerText = "";
 
     if (!op || !prod || !uf || !speed) return;
 
-    // 1. Busca Item Base na LPU
+    // 1. Busca item base na LPU
     const item = window.LPU_DB.find(i => i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed);
-
     if (!item) {
         if (obsMensal) obsMensal.innerText = "Item não encontrado na LPU";
         return;
     }
 
-    // --- BASE DE CÁLCULO (CLEAN) ---
-    // Sempre reinicia do valor base para garantir que desmarcar funcione
-    let calcMensal = item.m.c;
-    let calcInstal = item.i.c;
+    // 2. Valores especiais
+    const opts = readOptions();
+    const r = Pricing.computePricing(item, opts, op);
+    const calcMensal = r.mensalClean;
+    const calcInstal = r.instalacaoClean;
 
-    // Variáveis de acumulação (Começam zeradas/neutras a cada cálculo)
-    let multM = 1.0;
-    let multI = 1.0;
-    let addM = 0.0;
-    let addI = 0.0;
+    const nota = r.faixa === 0.65 ? ' | Faixa > R$ 15 mil (x0,65)'
+        : r.faixa === 0.85 ? ' | Faixa R$ 10-15 mil (x0,85)' : '';
+    const notaInst = opts.rural ? ' | Instalação Zona Rural' : '';
 
-    // --- REGRAS DE NEGÓCIO ---
-
-    // 1. Shopping (x2)
-    if (document.getElementById('checkShopping').checked) {
-        multM *= 2.0;
-        multI *= 2.0;
-    }
-
-    // 2. Indústria OU Fora de Zona Urbana (São a mesma coisa: x1.2 + 5k Instalação)
-    const isIndustria = document.getElementById('checkIndustria').checked;
-    const isForaUrbana = isChecked('sp_fora_urbana'); // Do specials.js
-
-    if (isIndustria || isForaUrbana) {
-        multM *= 1.2;
-        multI *= 1.2;
-        addI += 5000; // Adicional fixo unificado
-    }
-
-    // 3. Cidade Pequena (x1.4)
-    if (isChecked('sp_cid_peq')) {
-        multM *= 1.4;
-        multI *= 1.4;
-    }
-
-    // 4. Provedores (RTM/Avato/etc) (x1.2)
-    if (isChecked('sp_prov_rtm')) {
-        multM *= 1.2;
-        multI *= 1.2;
-    }
-
-    // 5. Favela / Risco / Subterrânea (x1.2 + R$ 1000 Mensal + R$ 2000 Instalação)
-    if (isChecked('sp_favela')) {
-        multM *= 1.2;
-        multI *= 1.2;
-        addM += 1000;
-        addI += 2000;
-    }
-
-    // 6. Aeroporto (+4200 Mensal e Instalação)
-    if (document.getElementById('checkAeroporto').checked) {
-        addM += 4200;
-        addI += 4200;
-    }
-
-    // 7. Datacenter (+1200 Mensal)
-    if (document.getElementById('checkDatacenter').checked) {
-        addM += 1200;
-    }
-
-    // 8. Rádio Backup (+6000 Instalação)
-    if (isChecked('sp_radio')) {
-        addI += 6000;
-    }
-
-    // --- APLICAÇÃO DA LÓGICA ---
-
-    // Passo A: Multiplicadores sobre a base
-    calcMensal = calcMensal * multM;
-    calcInstal = calcInstal * multI;
-
-    // Passo B: Soma dos valores fixos
-    calcMensal += addM;
-    calcInstal += addI;
-
-    // --- FÓRMULAS ESPECIAIS (Somadas no final) ---
-
-    // 9. Zona Rural (Apenas Distância e Fibra)
-    // Fórmula: (Metros * 3.65) + 500
-    // Só aplica se o checkbox Rural estiver marcado, independente se é indústria ou não.
-    if (document.getElementById('checkRural').checked) {
-        const distInput = document.getElementById('inputDistancia');
-        const dist = parseFloat(distInput ? distInput.value : 0) || 0;
-
-        const custoRural = (dist * 3.65) + 500;
-
-        // Adiciona ao valor de instalação acumulado
-        calcInstal += custoRural;
-    }
-
-    // 10. IPs Fixos
-    // Fórmula: SE(Qtd>0; 125 + (Qtd*25); 0)
-    if (isChecked('sp_ips')) {
-        const ipInput = document.getElementById('val_ips');
-        const qtdIp = parseFloat(ipInput ? ipInput.value : 0) || 0;
-
-        if (qtdIp > 0) {
-            const costIp = 125 + (qtdIp * 25);
-            calcMensal += costIp;
-        }
-    }
-
-    // --- IMPOSTOS ---
-    const taxM = 1.336;
-    const taxI = 1.166;
-
-    const finalMensalFull = calcMensal * taxM;
-    const finalInstalFull = calcInstal * taxI;
-
-    // --- EXIBIÇÃO ---
+    // 3. Exibição
     if (impostoMode === 'sem') {
-        lblMensal.innerText = formatMoney(calcMensal);
-        lblInstal.innerText = formatMoney(calcInstal);
-        obsMensal.innerText = "Valor Clean (Sem Impostos)";
-        if (obsInstal) obsInstal.innerText = "Valor Clean (Sem Impostos)";
+        lblMensal.innerText = formatMoney(r.mensalClean);
+        lblInstal.innerText = formatMoney(r.instalacaoClean);
+        obsMensal.innerText = "Valor Clean (Sem Impostos)" + nota;
+        if (obsInstal) obsInstal.innerText = "Valor Clean (Sem Impostos)" + notaInst;
     } else if (impostoMode === 'ambos') {
-        lblMensal.innerText = formatMoney(finalMensalFull);
-        lblInstal.innerText = formatMoney(finalInstalFull);
-        obsMensal.innerText = `Clean: ${formatMoney(calcMensal)}`;
-        if (obsInstal) obsInstal.innerText = `Clean: ${formatMoney(calcInstal)}`;
+        lblMensal.innerText = formatMoney(r.mensalFull);
+        lblInstal.innerText = formatMoney(r.instalacaoFull);
+        obsMensal.innerText = `Clean: ${formatMoney(r.mensalClean)}` + nota;
+        if (obsInstal) obsInstal.innerText = `Clean: ${formatMoney(r.instalacaoClean)}` + notaInst;
     } else {
-        lblMensal.innerText = formatMoney(finalMensalFull);
-        lblInstal.innerText = formatMoney(finalInstalFull);
-        obsMensal.innerText = "Com Impostos";
-        if (obsInstal) obsInstal.innerText = "Com Impostos";
+        lblMensal.innerText = formatMoney(r.mensalFull);
+        lblInstal.innerText = formatMoney(r.instalacaoFull);
+        obsMensal.innerText = "Com Impostos" + nota;
+        if (obsInstal) obsInstal.innerText = "Com Impostos" + notaInst;
     }
 
-    generateEmail(op, prod, speed, uf, dur, calcMensal, calcInstal, finalMensalFull);
+    generateEmail(op, prod, speed, uf, dur, r);
 }
 
-// Helper para checar checkboxes do specials.js
+// Helper para checar checkboxes do specials.js (ids sem o prefixo "sp_")
 function isChecked(id) {
     const el = document.getElementById(`sp_${id}`);
-    return el && el.checked;
+    return !!(el && el.checked);
 }
 
 // --- ANÁLISE INTELIGENTE (IA TURBO) ---
@@ -378,7 +303,7 @@ function formatMoney(v) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function generateEmail(op, prod, speed, uf, dur, cM, cI, fullM) {
+function generateEmail(op, prod, speed, uf, dur, r) {
     const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
 
     const reportDiv = document.getElementById('analysisReport');
@@ -395,11 +320,12 @@ Produto: ${op} ${prod} ${sLabel} (${uf})
 Prazo de Contrato: ${dur} Meses
 ${aiNotes}
 -- Valores Com Impostos --
-Mensal: ${formatMoney(fullM)}
+Mensal: ${formatMoney(r.mensalFull)}
+Instalação: ${formatMoney(r.instalacaoFull)}
 
 -- Valores Clean (Ref.) --
-Mensal s/impostos: ${formatMoney(cM)}
-Instalação s/impostos: ${formatMoney(cI)}
+Mensal s/impostos: ${formatMoney(r.mensalClean)}
+Instalação s/impostos: ${formatMoney(r.instalacaoClean)}
 Prazo de instalação: 60 Dias
 
 Ficamos à disposição.
