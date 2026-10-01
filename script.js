@@ -1,3 +1,12 @@
+// --- CONFIGURAÇÃO EDITÁVEL ---
+// Prazos (em meses) que aparecem como botões. Pode adicionar/remover aqui (ex.: [12, 24, 36]).
+// Só funcionam os prazos que existem nas tabelas LPU.
+const PRAZOS_DISPONIVEIS = [12, 24, 36, 48, 60];
+// Prazos marcados ao abrir o site.
+const PRAZOS_INICIAIS = [36];
+// Estado: prazos marcados (o último clicado vira o "principal", mostrado nos cards de resultado).
+let prazosSelecionados = [...PRAZOS_INICIAIS];
+
 document.addEventListener('DOMContentLoaded', () => {
     // Data Atual
     const dateEl = document.getElementById('currentDate');
@@ -150,7 +159,7 @@ function calculate() {
         if (obsInstal) obsInstal.innerText = "Com Impostos" + notaInst;
     }
 
-    generateEmail(op, prod, speed, uf, dur, r);
+    generateEmail(op, prod, speed, uf, opts);
 }
 
 // Helper para checar checkboxes do specials.js (ids sem o prefixo "sp_")
@@ -303,7 +312,7 @@ function formatMoney(v) {
     return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function generateEmail(op, prod, speed, uf, dur, r) {
+function generateEmail(op, prod, speed, uf, opts) {
     const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
 
     const reportDiv = document.getElementById('analysisReport');
@@ -312,20 +321,31 @@ function generateEmail(op, prod, speed, uf, dur, r) {
         aiNotes = "\nNOTAS DE VIABILIDADE:\n" + reportDiv.innerText.replace(/\n/g, '\n- ') + "\n";
     }
 
-    const txt = `Olá, tudo bem?
-
-Segue abaixo a cotação conforme solicitado. Validade de 30 dias.
-
-Produto: ${op} ${prod} ${sLabel} (${uf})
-Prazo de Contrato: ${dur} Meses
-${aiNotes}
+    // Um bloco de valores para cada prazo marcado (12, 24, 36...)
+    const prazos = [...prazosSelecionados].sort((a, b) => a - b);
+    const blocos = prazos.map(dur => {
+        const item = window.LPU_DB.find(i => i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed);
+        if (!item) return `== Contrato de ${dur} meses ==\nValor indisponível para este prazo.`;
+        const r = Pricing.computePricing(item, opts, op);
+        return `== Contrato de ${dur} meses ==
 -- Valores Com Impostos --
 Mensal: ${formatMoney(r.mensalFull)}
 Instalação: ${formatMoney(r.instalacaoFull)}
 
 -- Valores Clean (Ref.) --
 Mensal s/impostos: ${formatMoney(r.mensalClean)}
-Instalação s/impostos: ${formatMoney(r.instalacaoClean)}
+Instalação s/impostos: ${formatMoney(r.instalacaoClean)}`;
+    });
+
+    // Texto enviado ao cliente (sem nome de operadora). Edite à vontade.
+    const txt = `Olá, tudo bem?
+
+Segue abaixo a cotação conforme solicitado. Validade de 30 dias.
+
+Produto: ${prod} ${sLabel} (${uf})
+${aiNotes}
+${blocos.join('\n\n')}
+
 Prazo de instalação: 60 Dias
 
 Ficamos à disposição.
@@ -404,21 +424,37 @@ function renderPrazoButtons() {
     if (!container || !hiddenInput) return;
 
     container.innerHTML = '';
-    const prazos = [12, 24, 36, 48, 60];
-    prazos.forEach(p => {
+    // Principal = prazo usado nos cards de resultado e na lista de velocidades
+    hiddenInput.value = prazosSelecionados[prazosSelecionados.length - 1] || PRAZOS_DISPONIVEIS[0];
+
+    const refresh = () => {
+        container.querySelectorAll('.pill-btn-sm').forEach(b => {
+            b.classList.toggle('active', prazosSelecionados.includes(parseInt(b.dataset.prazo)));
+        });
+    };
+
+    PRAZOS_DISPONIVEIS.forEach(p => {
         const btn = document.createElement('div');
         btn.className = 'pill-btn-sm';
+        btn.dataset.prazo = p;
         btn.textContent = `${p}m`;
-        if (p == 36) btn.classList.add('active'); // Padrão
         btn.onclick = () => {
-            container.querySelectorAll('.pill-btn-sm').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            hiddenInput.value = p;
+            const idx = prazosSelecionados.indexOf(p);
+            if (idx >= 0) {
+                if (prazosSelecionados.length === 1) return; // mantém pelo menos 1 prazo
+                prazosSelecionados.splice(idx, 1);
+                if (parseInt(hiddenInput.value) === p) hiddenInput.value = prazosSelecionados[prazosSelecionados.length - 1];
+            } else {
+                prazosSelecionados.push(p);
+                hiddenInput.value = p;
+            }
+            refresh();
             updateSpeeds();
             calculate();
         };
         container.appendChild(btn);
     });
+    refresh();
 }
 
 function renderSpecials() {
@@ -567,22 +603,27 @@ async function callGeminiAI() {
     const speed = document.getElementById('selVelocidade').value;
     const prazo = document.getElementById('selPrazo').value;
     const preco = document.getElementById('resMensal').innerText;
+    const propostaAtual = txtArea.value;
 
     const reportDiv = document.getElementById('analysisReport');
     const geoContext = (reportDiv && !reportDiv.classList.contains('hidden')) ? reportDiv.innerText : "Área Padrão";
 
     const prompt = `
         Aja como um consultor comercial de telecom (Sitelbra Wholesale).
-        Reescreva esta proposta de forma persuasiva.
+        Reescreva esta proposta de forma persuasiva, mantendo TODOS os valores de cada prazo do texto abaixo.
         
         DADOS:
-        - Link: ${op} ${prod} ${speed}Mbps em ${uf}
-        - Contrato: ${prazo} meses
+        - Link: ${prod} ${speed}Mbps em ${uf}
+        - Contratos: ${prazosSelecionados.slice().sort((a, b) => a - b).join(', ')} meses
+        - NÃO cite o nome da operadora/empresa fornecedora na proposta.
         - Valor: ${preco}
         - Contexto Geográfico: ${geoContext}
         
         Se houver taxas extras (Rural/Shopping/Industrial), justifique como investimento em infraestrutura dedicada e SLA.
         Seja breve.
+
+        PROPOSTA ATUAL:
+        ${propostaAtual}
     `;
 
     const originalText = btn.innerHTML;
