@@ -39,7 +39,7 @@ function toast(msg, type = 'ok') {
 }
 
 // --- ESTADO ---
-let lastQuote = null, lastSig = '', liveText = '', dirty = false, compareOpen = false, detailOpen = false, computing = false;
+let lastQuote = null, lastSig = '', liveText = '', dirty = false, activeTab = 'proposta', detailOpen = false, computing = false;
 
 function getSel() {
     return {
@@ -171,7 +171,7 @@ function renderOptions() {
     window.SPECIALS_DB.forEach(s => groups[s.grupo || 'circuito'].appendChild(optRow({ id: `sp_${s.id}`, nome: s.nome, tag: s.tag, desc: s.desc, input: s.input ? `val_${s.id}` : null })));
 }
 function updateAdvSummary() {
-    const n = document.querySelectorAll('#advBody input[type=checkbox]:checked').length;
+    const n = document.querySelectorAll('#advDetails input[type=checkbox]:checked').length;
     $('advSummary').textContent = n ? `${n} ${n === 1 ? 'opção ativa' : 'opções ativas'}` : 'SLA, dupla abordagem, IPs, MTU, local e outras regras';
 }
 
@@ -205,17 +205,17 @@ function renderResult() {
     lastQuote = q;
     const empty = $('resEmpty'), content = $('resContent'), details = $('details');
     if (!q.ok) {
-        content.hidden = true; details.hidden = true; empty.hidden = false;
+        content.hidden = true; details.classList.add('noq'); empty.hidden = false;
         const inv = q.motivo === 'sem_lpu';
         empty.classList.toggle('bad', inv);
         empty.querySelector('.empty-ic').innerHTML = ic(inv ? 'xc' : 'bolt', 'ic');
         empty.querySelector('h3').textContent = inv ? 'Inviável: sem preço na LPU' : 'Sua cotação aparece aqui';
         $('emptyMsg').textContent = inv ? q.status.reasons[0] : 'Escolha operadora, produto, UF e velocidade. O prazo já vem marcado em 36 meses.';
         $('emptyList').innerHTML = inv ? '' : q.missing.map(m => `<li>Falta: ${esc(m)}</li>`).join('');
-        if (compareOpen) renderCompare();
+        if (activeTab === 'comparar') renderCompare();
         return q;
     }
-    empty.hidden = true; content.hidden = false; details.hidden = false;
+    empty.hidden = true; content.hidden = false; details.classList.remove('noq');
     const s = q.status, d = q.display;
     $('badge').className = 'badge ' + s.level;
     $('badge').querySelector('.b-ic').innerHTML = ic(s.level === 'viavel' ? 'checkc' : s.level === 'atencao' ? 'alert' : 'xc', 'ic');
@@ -248,7 +248,7 @@ function renderResult() {
         $('iaBody').textContent = 'Gere observações sobre instalação, fatores de maior impacto e prazo, usando apenas os dados desta cotação.';
         document.querySelectorAll('.m-v, .viab').forEach(el => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
     }
-    if (compareOpen) renderCompare();
+    if (activeTab === 'comparar') renderCompare();
     return q;
 }
 
@@ -326,9 +326,12 @@ function renderCompare() {
             ? `<tr class="${r.atual ? 'cur' : ''}"><td>${esc(r.op)}${r.atual ? '<span class="tag">selecionada</span>' : ''}</td><td class="n">${money(r.display.mensal)}</td><td class="n">${money(r.display.inst)}</td><td>${sel.dur} meses</td></tr>`
             : `<tr><td>${esc(r.op)}</td><td class="n na" colspan="2">Sem preço na LPU</td><td>${sel.dur} meses</td></tr>`).join('') + '</tbody>';
 }
-function setCompare(open, scroll) {
-    compareOpen = open; $('cardCompare').hidden = !open;
-    if (open) { renderCompare(); if (scroll) $('cardCompare').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+// Abas do painel de resultado
+function activateTab(name, focus) {
+    activeTab = name;
+    document.querySelectorAll('.tab').forEach(t => { const on = t.dataset.tab === name; t.classList.toggle('on', on); t.setAttribute('aria-selected', String(on)); if (on && focus) t.focus(); });
+    document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== 'tab-' + name; });
+    if (name === 'comparar') renderCompare();
 }
 
 // --- HISTÓRICO ---
@@ -433,12 +436,11 @@ function exportProposal() {
 }
 
 // --- UI auxiliar ---
-function setAdv(open) { $('btnAdv').setAttribute('aria-expanded', String(open)); $('advBody').hidden = !open; }
-function setImposto(mode, silent) {
-    $('selImpostoMode').value = mode;
-    document.querySelectorAll('#impostoSeg button').forEach(b => { const on = b.dataset.mode === mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
-    if (!silent) calculate();
-}
+// Análise avançada: sempre aberta no desktop; recolhível em telas pequenas
+function setAdv(open) { $('advDetails').open = !!open; }
+const mqDesk = window.matchMedia('(min-width: 1101px)');
+function syncAdv() { if (mqDesk.matches) $('advDetails').open = true; }
+function setImposto(mode, silent) { $('selImpostoMode').value = mode; if (!silent) calculate(); }
 
 // Botão principal: valida, mostra loading, salva no histórico e leva ao resultado
 function onCalcClick() {
@@ -453,7 +455,7 @@ function onCalcClick() {
         if (q.ok) {
             const saved = saveToHistory(q);
             toast(saved ? 'Cotação calculada e salva no histórico.' : 'Cotação calculada. O histórico não pôde ser salvo neste navegador.', saved ? 'ok' : 'err');
-            if (window.matchMedia('(max-width: 1100px)').matches) $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (!mqDesk.matches) $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else toast(q.status ? q.status.reasons[0] : 'Revise os campos.', 'err');
     }, 380);
 }
@@ -464,18 +466,23 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOptions(); renderOperators(); renderVisualUF(); renderPrazoButtons(); updateProducts(); updateSpeeds(); hydrateIcons(); renderHistory();
 
     $('btnCalc').addEventListener('click', onCalcClick);
-    $('btnAdv').addEventListener('click', () => setAdv($('btnAdv').getAttribute('aria-expanded') !== 'true'));
+    syncAdv(); (mqDesk.addEventListener ? mqDesk.addEventListener('change', syncAdv) : mqDesk.addListener(syncAdv));
+    if (!mqDesk.matches) $('advDetails').open = false;
 
     // Opções avançadas: um único listener delegado
-    $('advBody').addEventListener('change', e => {
+    $('advDetails').addEventListener('change', e => {
         const t = e.target;
         if (t.id === 'checkRural') $('ruralOptions').hidden = !t.checked;
         if (t.id === 'sp_ips' && $('val_ips')) { $('val_ips').hidden = !t.checked; if (t.checked) $('val_ips').focus(); }
         updateAdvSummary(); calculate();
     });
-    $('advBody').addEventListener('input', e => { if (e.target.type === 'number') { e.target.classList.remove('bad'); $('errDist').textContent = ''; calculate(); } });
+    $('advDetails').addEventListener('input', e => { if (e.target.type === 'number') { e.target.classList.remove('bad'); $('errDist').textContent = ''; calculate(); } });
 
-    $('impostoSeg').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setImposto(b.dataset.mode); });
+    $('selImpostoMode').addEventListener('change', calculate);
+    document.querySelector('.tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) activateTab(t.dataset.tab); });
+    $('btnOpenCompare').addEventListener('click', () => { activateTab('comparar'); $('details').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });
+    const logo = $('brandLogo'), logoFail = () => { logo.hidden = true; $('brandFallback').hidden = false; };
+    logo.addEventListener('error', logoFail); if (logo.complete && logo.naturalWidth === 0) logoFail();
     $('btnCopySummary').addEventListener('click', e => copySummary(e.currentTarget));
     $('btnCopySummary2').addEventListener('click', e => copySummary(e.currentTarget));
     $('btnCopy').addEventListener('click', copyEmail);
@@ -495,8 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $('compoDetail').hidden = true;
 
-    $('btnOpenCompare').addEventListener('click', () => setCompare(true, true));
-    $('btnCloseCompare').addEventListener('click', () => setCompare(false));
     $('btnOpenHistory').addEventListener('click', () => toggleDrawer(true));
     $('btnCloseHistory').addEventListener('click', () => toggleDrawer(false));
     $('scrim').addEventListener('click', () => toggleDrawer(false));
