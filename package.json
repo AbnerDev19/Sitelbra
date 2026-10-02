@@ -1,0 +1,11 @@
+{
+  "name": "sitelbra-cotacao",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Sitelbra Wholesale - plataforma interna de cotação",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/pricing.test.js && node tests/quote.test.js"
+  },
+  "engines": { "node": ">=18" }
+}

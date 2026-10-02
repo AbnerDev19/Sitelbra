@@ -23,6 +23,6 @@
 ## Não alterado
 - **Oi**: não veio planilha; `lpu_oi.js` segue como estava.
 - Aba ALLOHA (Cirion) não foi carregada como operadora.
-- A chave da API Gemini continua exposta no script.js: gere uma nova.
+- ~~A chave da API Gemini estava exposta no script.js~~ → removida do front-end (ver README). **A chave antiga continua pública no histórico do repositório: revogue-a e gere uma nova.**
 
 Testes: `node tests/pricing.test.js`

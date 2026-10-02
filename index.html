@@ -1,162 +1,186 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sitelbra Wholesale | Calculadora Pro</title>
+    <title>Sitelbra Wholesale | Cotação</title>
+    <meta name="color-scheme" content="light">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-
 <body>
-    <div class="app-layout">
-        <aside class="sidebar">
-            <div class="brand">
-                <div class="logo-icon">S</div>
-                <span>Sitelbra Wholesale</span>
-            </div>
-            <div class="scroll-content">
-                <div class="visual-card" style="border: 1px solid var(--accent); background: #fffcf5; margin-bottom: 20px;">
-                    <span class="card-label" style="color: var(--accent);">Análise Geográfica Real</span>
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <input type="text" id="aiCoords" class="input-text" placeholder="Latitude, Longitude">
-                        <small style="color: #999; font-size: 0.7rem;">Pressione Enter para buscar</small>
-                    </div>
-                    <button id="btnSmartAnalysis" class="pill-btn" style="width: 100%; background: var(--accent); color: white; border:none; font-weight: bold;">
-                        <span id="aiBtnText">Consultar Viabilidade</span>
-                        <div id="aiLoader" class="hidden">Analisando Mapa...</div>
-                    </button>
-                </div>
+<header class="topbar">
+    <div class="topbar-in">
+        <div class="brand">
+            <span class="logo" aria-hidden="true">S</span>
+            <div class="brand-txt"><strong>Sitelbra Wholesale</strong><span>Inteligência comercial</span></div>
+        </div>
+        <nav class="top-actions" aria-label="Ações">
+            <span class="date" id="currentDate">--/--/----</span>
+            <button type="button" class="btn ghost on-dark" id="btnOpenCompare" aria-label="Comparar operadoras"><span data-ic="compare"></span><span class="lbl">Comparar operadoras</span></button>
+            <button type="button" class="btn ghost on-dark" id="btnOpenHistory" aria-label="Histórico de cotações"><span data-ic="history"></span><span class="lbl">Histórico</span><span class="count" id="histCount" hidden>0</span></button>
+        </nav>
+    </div>
+</header>
 
-                <input type="hidden" id="selOperadora">
-                <input type="hidden" id="selProduto">
-                <input type="hidden" id="selUF">
-                <input type="hidden" id="selVelocidade">
-                <input type="hidden" id="selPrazo" value="36">
-
-                <div class="section-title">CONFIGURAÇÕES</div>
-                <div class="form-group">
-                    <label>Prazo de Contrato</label>
-                    <div id="visualPrazoGrid" class="pill-grid-sidebar"></div>
-                </div>
-
-                <div class="divider"></div>
-                <div class="form-group" style="background: #eef; padding: 12px; border-radius: 8px;">
-                    <label style="color: #333; font-weight: 600; font-size: 0.8rem; margin-bottom: 8px;">Visualização de Valores</label>
-                    <div class="select-wrapper">
-                        <select id="selImpostoMode">
-                            <option value="sem" selected>Sem Impostos (Clean)</option>
-                            <option value="com">Com Impostos (Final)</option>
-                            <option value="ambos">Detalhado (Ambos)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="divider"></div>
-                <div class="section-title">ADICIONAIS DE LOCAL</div>
-                <div class="toggles-list">
-                    <label class="toggle-item"><input type="checkbox" id="checkShopping"><span class="toggle-label">Shopping Center (x2)</span></label>
-                    <label class="toggle-item"><input type="checkbox" id="checkAeroporto"><span class="toggle-label">Aeroporto (+2x a mensalidade da LPU)</span></label>
-                    <label class="toggle-item"><input type="checkbox" id="checkIndustria"><span class="toggle-label">Indústria/Galpão (x1.2 + Inst. 3.500)</span></label>
-                    <label class="toggle-item"><input type="checkbox" id="checkDatacenter"><span class="toggle-label">Datacenter (+R$ 1.200 mensal)</span></label>
-                    <label class="toggle-item"><input type="checkbox" id="checkRural"><span class="toggle-label" style="color:var(--accent); font-weight:600;">Zona Rural (instalação por distância)</span></label>
-                    <div id="ruralOptions" class="hidden" style="margin-left: 24px; margin-top: 5px;">
-                        <input type="number" id="inputDistancia" placeholder="Distância (metros)" class="input-text" style="font-size: 0.8rem;">
-                    </div>
-                </div>
-
-                <div class="divider"></div>
-                <div class="section-title">PROJETOS ESPECIAIS</div>
-                <div id="specialsContainer"></div>
-            </div>
-        </aside>
-
-        <main class="main-content">
-            <header>
-                <h1>Nova Cotação</h1>
-                <div class="date-badge" id="currentDate">--/--/----</div>
-            </header>
-            <div class="tri-layout">
-                <section class="col-section">
-                    <div class="step-header"><span class="step-num">1</span><span>Rede & Local</span></div>
-                    <div class="visual-card">
-                        <span class="card-label">SELECIONE A OPERADORA</span>
-                        <div id="visualOpGrid" class="pill-grid"></div>
-                    </div>
-                    <div class="visual-card" style="flex: 1;">
-                        <span class="card-label">SELECIONE O ESTADO</span>
-                        <div id="visualUFGrid" class="uf-grid-wrapper"></div>
-                        <div class="uf-legend">
-                            <div class="legend-item"><span class="dot grp1"></span> G1</div>
-                            <div class="legend-item"><span class="dot grp2"></span> G2</div>
-                            <div class="legend-item"><span class="dot grp3"></span> G3</div>
-                            <div class="legend-item"><span class="dot grp4"></span> G4</div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="col-section">
-                    <div class="step-header"><span class="step-num">2</span><span>Produto & Capacidade</span></div>
-                    <div class="visual-card">
-                        <span class="card-label">SELECIONE O PRODUTO</span>
-                        <div id="visualProdGrid" class="pill-grid">
-                            <div class="empty-state-small">Selecione Operadora primeiro</div>
-                        </div>
-                    </div>
-                    <div class="visual-card" style="flex: 1; display: flex; flex-direction: column;">
-                        <span class="card-label">SELECIONE A VELOCIDADE</span>
-                        <div id="visualSpeedGrid" class="speed-grid-wrapper" style="flex:1;">
-                            <div class="empty-state-msg"><span class="material-symbols-rounded">block</span> Selecione UF e Produto.</div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="col-section result-section">
-                    <div class="step-header"><span class="step-num">3</span><span>Resultado & Análise</span></div>
-
-                    <div id="analysisReport" class="hidden" style="background: #fff8e1; border: 1px solid #eec054; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; color: #5a4a1b; line-height: 1.4;">
-                    </div>
-
-                    <div class="results-container">
-                        <div class="result-card primary">
-                            <span class="result-label">MENSALIDADE</span>
-                            <div class="result-value" id="resMensal">R$ 0,00</div>
-                            <small id="resMensalObs">Sem Impostos</small>
-                        </div>
-                        <div class="result-card secondary">
-                            <span class="result-label">INSTALAÇÃO</span>
-                            <div class="result-value" id="resInstalacao">R$ 0,00</div>
-                            <small id="resInstalacaoObs">Sem Impostos</small>
-                        </div>
-                        <div class="email-wrapper">
-                            <div class="section-header">
-                                <h3>Proposta Comercial</h3>
-                                <button class="btn-icon" id="btnCopy"><span class="material-symbols-rounded">content_copy</span></button>
-                            </div>
-                            <textarea id="emailTemplate" readonly></textarea>
-
-                            <button id="btnMagicAI" class="pill-btn" style="margin-top: 10px; background: #2e2e2e; color: #fff; border: none; width: 100%;">
-                                <span class="material-symbols-rounded" style="font-size:16px; margin-right:5px;">auto_awesome</span>
-                                Melhorar com IA
-                            </button>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </main>
+<main class="shell">
+    <div class="intro">
+        <h1>Da configuração à proposta comercial em poucos segundos.</h1>
     </div>
 
-    <script src="lpu_config.js"></script>
-    <script src="pricing.js"></script>
-    <script src="lpu_vivo.js"></script>
-    <script src="lpu_claro.js"></script>
-    <script src="lpu_cirion.js"></script>
-    <script src="lpu_oi.js"></script>
-    <script src="lpu_geral.js"></script>
-    <script src="specials.js"></script>
-    <script src="script.js"></script>
-</body>
+    <div class="grid">
+        <!-- ================= CONFIGURAÇÃO ================= -->
+        <section class="col-config" aria-labelledby="h-config">
+            <div class="card" id="cardConfig">
+                <div class="card-head"><h2 id="h-config">Cotação rápida</h2><span class="hint">Preencha os cinco campos e calcule</span></div>
 
+                <input type="hidden" id="selOperadora"><input type="hidden" id="selProduto">
+                <input type="hidden" id="selUF"><input type="hidden" id="selVelocidade"><input type="hidden" id="selPrazo" value="36">
+
+                <div class="field" data-field="op"><div class="flabel">Operadora</div><div id="visualOpGrid" class="chips"></div><div class="ferr" role="alert"></div></div>
+                <div class="field" data-field="prod"><div class="flabel">Produto</div><div id="visualProdGrid" class="chips"></div><div class="ferr" role="alert"></div></div>
+                <div class="field" data-field="uf"><div class="flabel">UF</div><div id="visualUFGrid" class="uf-grid"></div><div class="ferr" role="alert"></div></div>
+                <div class="field" data-field="speed"><div class="flabel">Velocidade</div><div id="visualSpeedGrid" class="speed-grid"></div><div class="ferr" role="alert"></div></div>
+                <div class="field" data-field="prazo">
+                    <div class="flabel">Prazo contratual <span class="tipwrap"><button type="button" class="tip-btn" aria-label="Sobre o prazo" data-ic="info"></button><span class="tip" role="tooltip">Você pode marcar vários prazos. O último marcado é o principal e aparece no painel; o texto comercial traz todos.</span></span></div>
+                    <div id="visualPrazoGrid" class="chips small"></div>
+                </div>
+
+                <button type="button" class="btn primary xl" id="btnCalc"><span class="spin" aria-hidden="true"></span><span data-ic="bolt" class="ic-lead"></span><span class="lbl">CALCULAR COTAÇÃO</span></button>
+
+                <div class="adv" id="adv">
+                    <button type="button" class="adv-toggle" id="btnAdv" aria-expanded="false" aria-controls="advBody">
+                        <span class="adv-t"><strong>Análise avançada</strong><small id="advSummary">SLA, dupla abordagem, IPs, MTU, local e outras regras</small></span>
+                        <span class="chev" data-ic="chev"></span>
+                    </button>
+                    <div class="adv-body" id="advBody" hidden>
+                        <div class="adv-inner">
+                            <div class="agroup"><div class="gtitle">Local</div><div id="localContainer" class="opts"></div>
+                                <div id="ruralOptions" class="rural" hidden>
+                                    <label class="flabel sm" for="inputDistancia">Distância (metros)</label>
+                                    <input type="number" id="inputDistancia" class="input" min="0" step="1" inputmode="numeric" placeholder="Ex.: 2500">
+                                    <div class="ferr" id="errDist" role="alert"></div>
+                                </div>
+                            </div>
+                            <div class="agroup"><div class="gtitle">Projetos especiais</div><div id="specialsLocal" class="opts"></div></div>
+                            <div class="agroup"><div class="gtitle">Condições do circuito</div><div id="specialsCircuito" class="opts"></div></div>
+                            <div class="agroup"><div class="gtitle">IPs fixos</div><div id="specialsIps" class="opts"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= RESULTADO ================= -->
+        <section class="col-result" aria-labelledby="h-result" aria-live="polite">
+            <div class="card result" id="resultCard">
+                <div class="card-head"><h2 id="h-result">Resultado &amp; análise</h2>
+                    <div class="seg" role="group" aria-label="Visualização de valores" id="impostoSeg">
+                        <button type="button" data-mode="sem" class="on" aria-pressed="true">Sem impostos</button>
+                        <button type="button" data-mode="com" aria-pressed="false">Com impostos</button>
+                        <button type="button" data-mode="ambos" aria-pressed="false">Ambos</button>
+                    </div>
+                    <input type="hidden" id="selImpostoMode" value="sem">
+                </div>
+
+                <div id="resEmpty" class="empty">
+                    <div class="empty-ic" data-ic="bolt"></div>
+                    <h3>Sua cotação aparece aqui</h3>
+                    <p id="emptyMsg">Escolha operadora, produto, UF e velocidade. O prazo já vem marcado em 36 meses.</p>
+                    <ul id="emptyList" class="miss"></ul>
+                </div>
+
+                <div id="resContent" hidden>
+                    <div class="viab" id="viab">
+                        <div class="viab-l"><span class="viab-k">Viabilidade comercial</span>
+                            <span class="badge" id="badge"><span class="b-ic"></span><span id="badgeTxt">Viável</span></span></div>
+                        <ul class="reasons" id="reasons"></ul>
+                    </div>
+
+                    <div class="money">
+                        <div class="m-blk primary"><span class="m-k">Mensalidade</span><div class="m-v" id="resMensal">R$ 0,00</div><small id="resMensalObs"></small></div>
+                        <div class="m-blk"><span class="m-k">Instalação</span><div class="m-v" id="resInstalacao">R$ 0,00</div><small id="resInstalacaoObs"></small></div>
+                    </div>
+                    <dl class="meta" id="metaLine"></dl>
+                    <div id="prazosTable" class="prazos" hidden></div>
+
+                    <div class="actions">
+                        <button type="button" class="btn secondary" id="btnCopySummary"><span data-ic="copy"></span><span class="lbl">Copiar resumo</span></button>
+                        <button type="button" class="btn secondary" id="btnExport"><span data-ic="download"></span><span class="lbl">Exportar proposta</span></button>
+                        <button type="button" class="btn ghost" id="btnSaveNow"><span data-ic="save"></span><span class="lbl">Salvar no histórico</span></button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="details" hidden>
+                <div class="two">
+                    <div class="card" id="cardComposicao">
+                        <div class="card-head"><h2>Composição do preço</h2><button type="button" class="btn link" id="btnDetail" aria-expanded="false"><span class="lbl">Ver cálculo detalhado</span><span class="chev" data-ic="chev"></span></button></div>
+                        <div id="compoSimple"></div>
+                        <div id="compoDetail" class="compo-detail" hidden></div>
+                    </div>
+                    <div class="stack">
+                        <div class="card" id="cardFatores"><div class="card-head"><h2>Fatores aplicados</h2></div><ul class="facts" id="factsList"></ul><p class="note" id="factsIgnored" hidden></p></div>
+                        <div class="card" id="cardDados"><div class="card-head"><h2>Dados da cotação</h2></div><dl class="kv" id="dadosList"></dl></div>
+                    </div>
+                </div>
+
+                <div class="card" id="cardResumo"><div class="card-head"><h2>Resumo da cotação</h2><button type="button" class="btn secondary sm" id="btnCopySummary2"><span data-ic="copy"></span><span class="lbl">Copiar resumo</span></button></div>
+                    <dl class="kv wide" id="summaryList"></dl></div>
+
+                <div class="card" id="cardTexto">
+                    <div class="card-head"><h2>Texto comercial</h2><span class="hint">Pronto para enviar ao cliente. Não cita a operadora.</span></div>
+                    <textarea id="emailTemplate" class="textarea" rows="14" spellcheck="true" aria-label="Texto comercial"></textarea>
+                    <div class="actions">
+                        <button type="button" class="btn secondary" id="btnCopy"><span data-ic="copy"></span><span class="lbl">Copiar texto</span></button>
+                        <button type="button" class="btn dark" id="btnMagicAI"><span class="spin" aria-hidden="true"></span><span data-ic="sparkle"></span><span class="lbl">Melhorar com IA</span></button>
+                        <button type="button" class="btn ghost" id="btnRegen"><span data-ic="refresh"></span><span class="lbl">Regenerar</span></button>
+                    </div>
+                    <div class="ferr" id="errTexto" role="alert"></div>
+                </div>
+
+                <div class="card" id="cardIA">
+                    <div class="card-head"><h2>Análise comercial com IA</h2><span class="hint">Opcional. Só comenta, nunca altera valores.</span></div>
+                    <div id="iaBody" class="ia-empty">Gere observações sobre instalação, fatores de maior impacto e prazo, usando apenas os dados desta cotação.</div>
+                    <div class="actions"><button type="button" class="btn dark" id="btnAnalyze"><span class="spin" aria-hidden="true"></span><span data-ic="sparkle"></span><span class="lbl">Analisar cotação</span></button></div>
+                </div>
+            </div>
+
+            <!-- Comparação -->
+            <div class="card" id="cardCompare" hidden>
+                <div class="card-head"><h2>Comparar operadoras</h2><button type="button" class="btn link" id="btnCloseCompare"><span class="lbl">Fechar</span></button></div>
+                <p class="note" id="cmpNote"></p>
+                <div class="table-wrap"><table class="tbl" id="cmpTable"></table></div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<!-- Histórico -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="h-hist" tabindex="-1">
+    <div class="drawer-head"><h2 id="h-hist">Histórico de cotações</h2>
+        <div><button type="button" class="btn link" id="btnClearHist">Limpar tudo</button>
+        <button type="button" class="icon-btn" id="btnCloseHistory" aria-label="Fechar histórico" data-ic="x"></button></div></div>
+    <div id="histList" class="hist-list"></div>
+</aside>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+<div id="printRoot" aria-hidden="true"></div>
+
+<script src="lpu_config.js"></script>
+<script src="pricing.js"></script>
+<script src="lpu_vivo.js"></script>
+<script src="lpu_claro.js"></script>
+<script src="lpu_cirion.js"></script>
+<script src="lpu_oi.js"></script>
+<script src="lpu_geral.js"></script>
+<script src="specials.js"></script>
+<script src="quote.js"></script>
+<script src="history.js"></script>
+<script src="ai.js"></script>
+<script src="script.js"></script>
+</body>
 </html>

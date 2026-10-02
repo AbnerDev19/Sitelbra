@@ -1,650 +1,513 @@
+// script.js - Interface da cotação Sitelbra.
+// Regras de preço: pricing.js | apresentação/status/composição: quote.js | histórico: history.js | IA: ai.js (via /api/ai)
+
 // --- CONFIGURAÇÃO EDITÁVEL ---
-// Prazos (em meses) que aparecem como botões. Pode adicionar/remover aqui (ex.: [12, 24, 36]).
-// Só funcionam os prazos que existem nas tabelas LPU.
+// Prazos (em meses) que aparecem como botões. Só funcionam os prazos que existem nas tabelas LPU.
 const PRAZOS_DISPONIVEIS = [12, 24, 36, 48, 60];
-// Prazos marcados ao abrir o site.
 const PRAZOS_INICIAIS = [36];
-// Estado: prazos marcados (o último clicado vira o "principal", mostrado nos cards de resultado).
-let prazosSelecionados = [...PRAZOS_INICIAIS];
+let prazosSelecionados = [...PRAZOS_INICIAIS]; // o último marcado é o principal
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Data Atual
-    const dateEl = document.getElementById('currentDate');
-    if (dateEl) dateEl.textContent = new Date().toLocaleDateString('pt-BR');
+// Mapa opção (id sem "sp_") -> chave usada por pricing.js
+const SP_KEY = { fora_urbana: 'foraUrbana', cid_peq: 'cidPeq', favela: 'favela', fibra_curta: 'fibraCurta', prov_rtm: 'provedor', sla: 'sla', dupla: 'dupla', radio: 'radio', comodato: 'comodato', mtu: 'mtu' };
 
-    // Inicialização da Interface
-    renderOperators();
-    renderVisualUF();
-    renderPrazoButtons();
-    renderSpecials();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = v => Quote.fmtBRL(v);
 
-    // Inicializa Grids (Visibilidade inicial)
-    updateProducts();
-    updateSpeeds();
+// --- ÍCONES (SVG inline, sem dependência externa) ---
+const ICONS = {
+    check: 'M5 12.5l4.5 4.5L19 7.5', alert: 'M12 4l9.5 16.5h-19z M12 10v4.5 M12 17.6v.01', x: 'M6 6l12 12M18 6L6 18',
+    copy: 'M9 9h11v11H9z M5 15V4h11', chev: 'M6 9l6 6 6-6', history: 'M4 12a8 8 0 1 0 2.5-5.8 M4 4v4.5h4.5 M12 8v4.5l3 2',
+    compare: 'M7 4v16M17 4v16M3 8l4-4 4 4M13 16l4 4 4-4', download: 'M12 4v11M7 11l5 5 5-5M5 20h14',
+    sparkle: 'M11 3l1.9 5.6L18.5 10.5 12.9 12.4 11 18l-1.9-5.6L3.5 10.5l5.6-1.9z M19 15l.9 2.4 2.4.9-2.4.9L19 21.6l-.9-2.4-2.4-.9 2.4-.9z',
+    info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M12 11v5.5 M12 7.6v.01', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+    open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', refresh: 'M20 11a8 8 0 1 0-2.3 6.3 M20 4v7h-7', bolt: 'M13 3L5 13.5h6L10 21l8-10.5h-6z',
+    save: 'M5 4h11l3 3v13H5z M8 4v5h7V4 M8 20v-6h8v6', checkc: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M8.3 12.4l2.5 2.5 4.9-5',
+    xc: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z M9 9l6 6M15 9l-6 6'
+};
+const ic = (n, cls = 'ic') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[n]}"/></svg>`;
+function hydrateIcons(root = document) { root.querySelectorAll('[data-ic]').forEach(el => { if (!el.dataset.done) { el.insertAdjacentHTML('afterbegin', ic(el.dataset.ic)); el.dataset.done = 1; } }); }
 
-    // --- LISTENERS (OUVINTES DE EVENTOS) ---
+// --- TOAST ---
+function toast(msg, type = 'ok') {
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.setAttribute('role', type === 'err' ? 'alert' : 'status');
+    t.innerHTML = ic(type === 'err' ? 'alert' : 'checkc') + `<span>${esc(msg)}</span>`;
+    $('toasts').appendChild(t);
+    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, type === 'err' ? 5000 : 2600);
+}
 
-    // 1. Recalcula ao digitar números (Distância, IPs, Coordenadas)
-    document.body.addEventListener('input', (e) => {
-        if (e.target.type === 'number') calculate();
-    });
+// --- ESTADO ---
+let lastQuote = null, lastSig = '', liveText = '', dirty = false, compareOpen = false, detailOpen = false, computing = false;
 
-    // 2. Listener para Checkboxes FIXOS do HTML (Aeroporto, Shopping, Indústria...)
-    // Isso corrige o problema de "não funcionar ao clicar"
-    const staticChecks = [
-        'checkShopping', 'checkAeroporto', 'checkIndustria',
-        'checkDatacenter', 'checkRural'
-    ];
-    staticChecks.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('change', calculate);
-    });
-
-    // 3. Listener para Modo de Imposto
-    const selImposto = document.getElementById('selImpostoMode');
-    if (selImposto) selImposto.addEventListener('change', calculate);
-
-    // 4. Botões de Ação
-    const btnCopy = document.getElementById('btnCopy');
-    if (btnCopy) btnCopy.addEventListener('click', copyEmail);
-
-    const btnSmart = document.getElementById('btnSmartAnalysis');
-    if (btnSmart) btnSmart.addEventListener('click', executarAnaliseReal);
-
-    // 5. Tecla Enter para Coordenadas
-    const inputCoords = document.getElementById('aiCoords');
-    if (inputCoords) {
-        inputCoords.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executarAnaliseReal();
-        });
-    }
-
-    // 6. Toggle Visual do Rural
-    const checkRural = document.getElementById('checkRural');
-    if (checkRural) {
-        checkRural.addEventListener('change', (e) => {
-            const div = document.getElementById('ruralOptions');
-            if (div) {
-                if (e.target.checked) div.classList.remove('hidden');
-                else div.classList.add('hidden');
-            }
-            calculate();
-        });
-    }
-
-    // 7. Botão Mágico IA
-    const btnMagic = document.getElementById('btnMagicAI');
-    if (btnMagic) btnMagic.addEventListener('click', callGeminiAI);
-});
-
-// --- CÁLCULO FINANCEIRO ---
-// A regra de negócio está em pricing.js (espelho das abas "Projeto Especial" das planilhas LPU).
-
-function readOptions() {
-    const chk = id => { const el = document.getElementById(id); return !!(el && el.checked); };
+function getSel() {
     return {
-        shopping: chk('checkShopping'),
-        aeroporto: chk('checkAeroporto'),
-        industria: chk('checkIndustria'),
-        datacenter: chk('checkDatacenter'),
-        rural: chk('checkRural'),
-        distancia: (chk('checkRural') && document.getElementById('inputDistancia')) ? document.getElementById('inputDistancia').value : 0,
-        foraUrbana: isChecked('fora_urbana'),
-        cidPeq: isChecked('cid_peq'),
-        favela: isChecked('favela'),
-        fibraCurta: isChecked('fibra_curta'),
-        provedor: isChecked('prov_rtm'),
-        sla: isChecked('sla'),
-        dupla: isChecked('dupla'),
-        radio: isChecked('radio'),
-        comodato: isChecked('comodato'),
-        mtu: isChecked('mtu'),
-        qtdIp: isChecked('ips') ? (document.getElementById('val_ips') ? document.getElementById('val_ips').value : 0) : 0
+        op: $('selOperadora').value, prod: $('selProduto').value, uf: $('selUF').value,
+        speed: parseFloat($('selVelocidade').value) || 0,
+        dur: parseInt($('selPrazo').value) || 36,
+        prazos: [...prazosSelecionados], opts: readOptions(),
+        impostoMode: $('selImpostoMode').value || 'sem'
     };
 }
 
-function calculate() {
-    const op = document.getElementById('selOperadora').value;
-    const prod = document.getElementById('selProduto').value;
-    const uf = document.getElementById('selUF').value;
-    const dur = parseInt(document.getElementById('selPrazo').value) || 36;
-    const speed = parseFloat(document.getElementById('selVelocidade').value) || 0;
-    const impostoMode = document.getElementById('selImpostoMode') ? document.getElementById('selImpostoMode').value : 'ambos';
+// Helper para checar checkboxes dos projetos especiais (ids sem o prefixo "sp_")
+function isChecked(id) { const el = $(`sp_${id}`); return !!(el && el.checked); }
 
-    const lblMensal = document.getElementById('resMensal');
-    const lblInstal = document.getElementById('resInstalacao');
-    const obsMensal = document.getElementById('resMensalObs');
-    const obsInstal = document.getElementById('resInstalacaoObs');
-
-    // Reset visual imediato
-    if (lblMensal) lblMensal.innerText = "R$ 0,00";
-    if (lblInstal) lblInstal.innerText = "R$ 0,00";
-    if (obsMensal) obsMensal.innerText = "Aguardando seleção...";
-    if (obsInstal) obsInstal.innerText = "";
-
-    if (!op || !prod || !uf || !speed) return;
-
-    // 1. Busca item base na LPU
-    const item = window.LPU_DB.find(i => i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed);
-    if (!item) {
-        if (obsMensal) obsMensal.innerText = "Item não encontrado na LPU";
-        return;
-    }
-
-    // 2. Valores especiais
-    const opts = readOptions();
-    const r = Pricing.computePricing(item, opts, op);
-    const calcMensal = r.mensalClean;
-    const calcInstal = r.instalacaoClean;
-
-    const nota = r.faixa === 0.65 ? ' | Faixa > R$ 15 mil (x0,65)'
-        : r.faixa === 0.85 ? ' | Faixa R$ 10-15 mil (x0,85)' : '';
-    const notaInst = opts.rural ? ' | Instalação Zona Rural' : '';
-
-    // 3. Exibição
-    if (impostoMode === 'sem') {
-        lblMensal.innerText = formatMoney(r.mensalClean);
-        lblInstal.innerText = formatMoney(r.instalacaoClean);
-        obsMensal.innerText = "Valor Clean (Sem Impostos)" + nota;
-        if (obsInstal) obsInstal.innerText = "Valor Clean (Sem Impostos)" + notaInst;
-    } else if (impostoMode === 'ambos') {
-        lblMensal.innerText = formatMoney(r.mensalFull);
-        lblInstal.innerText = formatMoney(r.instalacaoFull);
-        obsMensal.innerText = `Clean: ${formatMoney(r.mensalClean)}` + nota;
-        if (obsInstal) obsInstal.innerText = `Clean: ${formatMoney(r.instalacaoClean)}` + notaInst;
-    } else {
-        lblMensal.innerText = formatMoney(r.mensalFull);
-        lblInstal.innerText = formatMoney(r.instalacaoFull);
-        obsMensal.innerText = "Com Impostos" + nota;
-        if (obsInstal) obsInstal.innerText = "Com Impostos" + notaInst;
-    }
-
-    generateEmail(op, prod, speed, uf, opts);
+function readOptions() {
+    const chk = id => { const el = $(id); return !!(el && el.checked); };
+    return {
+        shopping: chk('checkShopping'), aeroporto: chk('checkAeroporto'), industria: chk('checkIndustria'), datacenter: chk('checkDatacenter'),
+        rural: chk('checkRural'),
+        distancia: chk('checkRural') && $('inputDistancia') ? $('inputDistancia').value : 0,
+        foraUrbana: isChecked('fora_urbana'), cidPeq: isChecked('cid_peq'), favela: isChecked('favela'), fibraCurta: isChecked('fibra_curta'),
+        provedor: isChecked('prov_rtm'), sla: isChecked('sla'), dupla: isChecked('dupla'), radio: isChecked('radio'),
+        comodato: isChecked('comodato'), mtu: isChecked('mtu'),
+        qtdIp: isChecked('ips') ? ($('val_ips') ? $('val_ips').value : 0) : 0
+    };
 }
 
-// Helper para checar checkboxes do specials.js (ids sem o prefixo "sp_")
-function isChecked(id) {
-    const el = document.getElementById(`sp_${id}`);
-    return !!(el && el.checked);
+function setOptions(o) {
+    o = o || {};
+    const set = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
+    window.LOCAL_DB.forEach(l => set(l.id, o[l.key]));
+    set('checkRural', o.rural);
+    $('ruralOptions').hidden = !o.rural;
+    $('inputDistancia').value = o.rural && o.distancia ? o.distancia : '';
+    Object.keys(SP_KEY).forEach(k => set('sp_' + k, o[SP_KEY[k]]));
+    const ipsOn = (parseFloat(o.qtdIp) || 0) > 0;
+    set('sp_ips', ipsOn);
+    if ($('val_ips')) { $('val_ips').hidden = !ipsOn; $('val_ips').value = ipsOn ? o.qtdIp : ''; }
+    updateAdvSummary();
 }
 
-// --- ANÁLISE INTELIGENTE (IA TURBO) ---
-async function executarAnaliseReal() {
-    const rawCoords = document.getElementById('aiCoords').value;
-
-    if (!rawCoords || !rawCoords.includes(',')) {
-        alert("Formato inválido. Use: Latitude, Longitude (ex: -23.63, -46.82)");
-        return;
-    }
-
-    const [lat, lon] = rawCoords.split(',').map(c => c.trim());
-    const btnText = document.getElementById('aiBtnText');
-    const loader = document.getElementById('aiLoader');
-    const reportDiv = document.getElementById('analysisReport');
-
-    // UI Loading
-    if (btnText) btnText.classList.add('hidden');
-    if (loader) loader.classList.remove('hidden');
-    if (reportDiv) reportDiv.classList.add('hidden');
-
-    try {
-        // --- 1. GEOLOCALIZAÇÃO ---
-        const responseGeo = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
-        const geoData = await responseGeo.json();
-        const address = geoData.address || {};
-
-        // Detectar UF
-        let uf = null;
-        if (address["ISO3166-2-lvl4"]) {
-            uf = address["ISO3166-2-lvl4"].split('-')[1];
-        } else if (address.state_code) {
-            uf = address.state_code;
-        } else {
-            const mapStates = { "São Paulo": "SP", "Rio de Janeiro": "RJ", "Minas Gerais": "MG", "Distrito Federal": "DF" };
-            uf = mapStates[address.state] || "SP";
-        }
-
-        if (uf) selectVisualUF(uf);
-
-        // --- 2. INFRAESTRUTURA (Overpass) ---
-        const query = `[out:json];(
-            node(around:800, ${lat}, ${lon})["shop"="mall"];
-            way(around:800, ${lat}, ${lon})["shop"="mall"];
-            node(around:1000, ${lat}, ${lon})["aeroway"="aerodrome"];
-            way(around:800, ${lat}, ${lon})["landuse"="industrial"];
-            way(around:800, ${lat}, ${lon})["building"="industrial"];
-            way(around:800, ${lat}, ${lon})["building"="warehouse"];
-            way(around:800, ${lat}, ${lon})["man_made"="works"];
-        );out body;`;
-
-        const responseMap = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-        const mapData = await responseMap.json();
-
-        // --- 3. LÓGICA DE DETECÇÃO ---
-
-        // Reseta checks
-        document.getElementById('checkShopping').checked = false;
-        document.getElementById('checkAeroporto').checked = false;
-        document.getElementById('checkIndustria').checked = false;
-        document.getElementById('checkRural').checked = false;
-        document.getElementById('ruralOptions').classList.add('hidden');
-
-        const checkFora = document.getElementById('sp_fora_urbana');
-        if (checkFora) checkFora.checked = false;
-
-        let logAdicionais = [];
-        let foundMall = false;
-        let foundAero = false;
-        let isIndustrial = false;
-
-        const localName = geoData.display_name ? geoData.display_name.split(',')[0] : "Local";
-        if (uf) logAdicionais.push(`📍 Localização: <strong>${localName} (${uf})</strong>`);
-
-        mapData.elements.forEach(el => {
-            if (el.tags.shop === 'mall') foundMall = true;
-            if (el.tags.aeroway === 'aerodrome') foundAero = true;
-            if (el.tags.landuse === 'industrial' ||
-                el.tags.building === 'industrial' ||
-                el.tags.building === 'warehouse' ||
-                el.tags.man_made === 'works') {
-                isIndustrial = true;
-            }
-        });
-
-        // Aplica Regras
-        if (foundAero) {
-            document.getElementById('checkAeroporto').checked = true;
-            logAdicionais.push("✈️ <strong>Aeroporto</strong> detectado");
-        }
-
-        if (foundMall) {
-            document.getElementById('checkShopping').checked = true;
-            logAdicionais.push("🏬 <strong>Shopping Center</strong> detectado");
-        }
-
-        if (isIndustrial && !foundMall && !foundAero) {
-            document.getElementById('checkIndustria').checked = true;
-            logAdicionais.push("🏭 <strong>Zona Industrial</strong> detectada");
-        }
-
-        // Lógica de Zona Afastada (Apenas marca Fora de Urbana, NÃO ativa Rural automaticamente)
-        let isZonaAfastada = false;
-        if (!address.suburb && !address.city_district && !address.quarter) isZonaAfastada = true;
-        if (['village', 'hamlet', 'isolated_dwelling', 'farm'].includes(geoData.type)) isZonaAfastada = true;
-
-        if (isZonaAfastada) {
-            if (checkFora) {
-                checkFora.checked = true;
-                logAdicionais.push("⚠️ <strong>Fora da Zona Urbana</strong> detectado");
-            }
-
-            // Sugestão visual apenas, não ativa checkbox Rural para não alterar cálculo erradamente
-            if (!isIndustrial) {
-                logAdicionais.push("ℹ️ Local parece remoto. Verifique se precisa ativar 'Zona Rural'.");
-            }
-        }
-
-        if (logAdicionais.length === 1) {
-            logAdicionais.push("✅ Área Urbana Padrão");
-        }
-
-        if (reportDiv) {
-            const uniqueLog = [...new Set(logAdicionais)];
-            reportDiv.innerHTML = uniqueLog.join('<br>');
-            reportDiv.classList.remove('hidden');
-        }
-
-        calculate();
-
-    } catch (err) {
-        console.error(err);
-        alert("Erro na análise. Verifique sua conexão.");
-    } finally {
-        if (btnText) btnText.classList.remove('hidden');
-        if (loader) loader.classList.add('hidden');
-    }
-}
-
-// --- AUXILIARES E RENDERIZAÇÃO ---
-
-function formatMoney(v) {
-    if (v === undefined || v === null || isNaN(v)) return "R$ 0,00";
-    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function generateEmail(op, prod, speed, uf, opts) {
-    const sLabel = speed >= 1000 ? (speed / 1000) + ' Gbps' : speed + ' Mbps';
-
-    const reportDiv = document.getElementById('analysisReport');
-    let aiNotes = "";
-    if (reportDiv && !reportDiv.classList.contains('hidden')) {
-        aiNotes = "\nNOTAS DE VIABILIDADE:\n" + reportDiv.innerText.replace(/\n/g, '\n- ') + "\n";
-    }
-
-    // Um bloco de valores para cada prazo marcado (12, 24, 36...)
-    const prazos = [...prazosSelecionados].sort((a, b) => a - b);
-    const blocos = prazos.map(dur => {
-        const item = window.LPU_DB.find(i => i.o == op && i.p == prod && i.u == uf && i.d == dur && i.s == speed);
-        if (!item) return `== Contrato de ${dur} meses ==\nValor indisponível para este prazo.`;
-        const r = Pricing.computePricing(item, opts, op);
-        return `== Contrato de ${dur} meses ==
--- Valores Com Impostos --
-Mensal: ${formatMoney(r.mensalFull)}
-Instalação: ${formatMoney(r.instalacaoFull)}
-
--- Valores Clean (Ref.) --
-Mensal s/impostos: ${formatMoney(r.mensalClean)}
-Instalação s/impostos: ${formatMoney(r.instalacaoClean)}`;
-    });
-
-    // Texto enviado ao cliente (sem nome de operadora). Edite à vontade.
-    const txt = `Olá, tudo bem?
-
-Segue abaixo a cotação conforme solicitado. Validade de 30 dias.
-
-Produto: ${prod} ${sLabel} (${uf})
-${aiNotes}
-${blocos.join('\n\n')}
-
-Prazo de instalação: 60 Dias
-
-Ficamos à disposição.
-
-Atenciosamente,`;
-
-    const template = document.getElementById('emailTemplate');
-    if (template) template.value = txt;
-}
-
-function copyEmail() {
-    const el = document.getElementById('emailTemplate');
-    if (!el || !el.value) return;
-    el.select();
-    document.execCommand('copy');
-    alert("Cotação copiada!");
+// --- RENDERIZAÇÃO DOS CONTROLES ---
+function chip(text, { pressed = false, disabled = false, onclick, cls = 'chip', data } = {}) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = cls; b.textContent = text;
+    b.setAttribute('aria-pressed', String(!!pressed));
+    if (disabled) b.disabled = true;
+    if (data) Object.assign(b.dataset, data);
+    if (onclick && !disabled) b.addEventListener('click', onclick);
+    return b;
 }
 
 function renderOperators() {
-    const container = document.getElementById('visualOpGrid');
-    if (!container || !window.LPU_DB) return;
-    const ops = [...new Set(window.LPU_DB.map(i => i.o))].sort();
-
-    container.innerHTML = '';
-    ops.forEach(op => {
-        const btn = document.createElement('div');
-        btn.className = 'pill-btn';
-        btn.textContent = op;
-        btn.onclick = () => selectOperator(op, btn);
-        container.appendChild(btn);
-    });
+    const c = $('visualOpGrid'); c.innerHTML = '';
+    [...new Set(window.LPU_DB.map(i => i.o))].sort().forEach(op =>
+        c.appendChild(chip(op, { pressed: $('selOperadora').value === op, onclick: () => selectOperator(op) })));
+}
+function selectOperator(op) {
+    $('selOperadora').value = op; $('selProduto').value = ''; $('selVelocidade').value = '';
+    clearErr('op'); renderOperators(); updateProducts(); updateSpeeds(); calculate();
 }
 
-function selectOperator(op, btnElement) {
-    document.querySelectorAll('#visualOpGrid .pill-btn').forEach(b => b.classList.remove('active'));
-    btnElement.classList.add('active');
-    document.getElementById('selOperadora').value = op;
-    document.getElementById('selProduto').value = "";
-    document.getElementById('selVelocidade').value = "";
-    updateProducts();
-    updateSpeeds();
-    calculate();
+function updateProducts() {
+    const op = $('selOperadora').value, c = $('visualProdGrid'); c.innerHTML = '';
+    const all = [...new Set(window.LPU_DB.map(i => i.p))].sort();
+    const avail = op ? new Set(window.LPU_DB.filter(i => i.o === op).map(i => i.p)) : new Set();
+    all.forEach(p => c.appendChild(chip(p, { pressed: $('selProduto').value === p, disabled: !avail.has(p), onclick: () => selectProduct(p) })));
+}
+function selectProduct(p) {
+    $('selProduto').value = p; $('selVelocidade').value = '';
+    clearErr('prod'); updateProducts(); updateSpeeds(); calculate();
 }
 
 function renderVisualUF() {
-    const container = document.getElementById('visualUFGrid');
-    if (!container || !window.UF_GROUPS) return;
-    container.innerHTML = '';
-    const ufs = Object.keys(window.UF_GROUPS).sort();
-    ufs.forEach(uf => {
-        const group = window.UF_GROUPS[uf];
-        const btn = document.createElement('div');
-        btn.className = `uf-square grp${group}`;
-        btn.textContent = uf;
-        btn.dataset.uf = uf;
-        btn.onclick = () => selectVisualUF(uf);
-        container.appendChild(btn);
-    });
+    const c = $('visualUFGrid'); c.innerHTML = '';
+    Object.keys(window.UF_GROUPS).sort().forEach(uf => c.appendChild(chip(uf, { pressed: $('selUF').value === uf, cls: 'chip', data: { uf }, onclick: () => selectVisualUF(uf) })));
 }
-
 function selectVisualUF(uf) {
-    const selUF = document.getElementById('selUF');
-    if (selUF) selUF.value = uf;
-
-    document.querySelectorAll('.uf-square').forEach(sq => {
-        if (sq.dataset.uf === uf) sq.classList.add('active');
-        else sq.classList.remove('active');
-    });
-    updateSpeeds();
-    calculate();
+    $('selUF').value = uf; clearErr('uf');
+    document.querySelectorAll('#visualUFGrid .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.uf === uf)));
+    updateSpeeds(); calculate();
 }
 
 function renderPrazoButtons() {
-    const container = document.getElementById('visualPrazoGrid');
-    const hiddenInput = document.getElementById('selPrazo');
-    if (!container || !hiddenInput) return;
-
-    container.innerHTML = '';
-    // Principal = prazo usado nos cards de resultado e na lista de velocidades
-    hiddenInput.value = prazosSelecionados[prazosSelecionados.length - 1] || PRAZOS_DISPONIVEIS[0];
-
-    const refresh = () => {
-        container.querySelectorAll('.pill-btn-sm').forEach(b => {
-            b.classList.toggle('active', prazosSelecionados.includes(parseInt(b.dataset.prazo)));
-        });
-    };
-
+    const c = $('visualPrazoGrid'), hidden = $('selPrazo');
+    c.innerHTML = '';
+    hidden.value = prazosSelecionados[prazosSelecionados.length - 1] || PRAZOS_DISPONIVEIS[0];
+    const refresh = () => c.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(prazosSelecionados.includes(parseInt(b.dataset.prazo)))));
     PRAZOS_DISPONIVEIS.forEach(p => {
-        const btn = document.createElement('div');
-        btn.className = 'pill-btn-sm';
-        btn.dataset.prazo = p;
-        btn.textContent = `${p}m`;
-        btn.onclick = () => {
+        c.appendChild(chip(`${p} meses`, { data: { prazo: p }, onclick: () => {
             const idx = prazosSelecionados.indexOf(p);
             if (idx >= 0) {
                 if (prazosSelecionados.length === 1) return; // mantém pelo menos 1 prazo
                 prazosSelecionados.splice(idx, 1);
-                if (parseInt(hiddenInput.value) === p) hiddenInput.value = prazosSelecionados[prazosSelecionados.length - 1];
-            } else {
-                prazosSelecionados.push(p);
-                hiddenInput.value = p;
-            }
-            refresh();
-            updateSpeeds();
-            calculate();
-        };
-        container.appendChild(btn);
+                if (parseInt(hidden.value) === p) hidden.value = prazosSelecionados[prazosSelecionados.length - 1];
+            } else { prazosSelecionados.push(p); hidden.value = p; }
+            refresh(); updateSpeeds(); calculate();
+        } }));
     });
     refresh();
 }
 
-function renderSpecials() {
-    const container = document.getElementById('specialsContainer');
-    if (!container || !window.SPECIALS_DB) return;
-    container.innerHTML = '';
-
-    window.SPECIALS_DB.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'toggle-item';
-        div.style.marginBottom = "8px";
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `sp_${item.id}`;
-        checkbox.dataset.id = item.id;
-        checkbox.addEventListener('change', calculate);
-
-        const label = document.createElement('span');
-        label.className = 'toggle-label';
-
-        if (item.input) {
-            label.innerHTML = `${item.nome} <br>
-                <input type="number" id="val_${item.id}" class="input-text" 
-                style="width:100px; margin-top:5px; font-size:0.8rem;" placeholder="Qtd">`;
-
-            setTimeout(() => {
-                const inp = document.getElementById(`val_${item.id}`);
-                if (inp) inp.addEventListener('input', calculate);
-            }, 0);
-        } else {
-            label.innerText = item.nome;
-        }
-
-        const labelContainer = document.createElement('label');
-        labelContainer.style.display = 'flex';
-        labelContainer.style.alignItems = 'flex-start';
-        labelContainer.style.gap = '10px';
-        labelContainer.style.cursor = 'pointer';
-
-        labelContainer.appendChild(checkbox);
-        labelContainer.appendChild(label);
-        div.appendChild(labelContainer);
-        container.appendChild(div);
-    });
-}
-
-function updateProducts() {
-    const op = document.getElementById('selOperadora').value;
-    const container = document.getElementById('visualProdGrid');
-    if (!container || !window.LPU_DB) return;
-    container.innerHTML = '';
-
-    const allProducts = [...new Set(window.LPU_DB.map(i => i.p))].sort();
-    let availableProducts = [];
-    if (op) {
-        availableProducts = [...new Set(window.LPU_DB.filter(i => i.o === op).map(i => i.p))];
-    }
-
-    allProducts.forEach(prod => {
-        const btn = document.createElement('div');
-        btn.textContent = prod;
-        if (!op) {
-            btn.className = 'pill-btn disabled';
-        } else {
-            if (availableProducts.includes(prod)) {
-                btn.className = 'pill-btn';
-                if (document.getElementById('selProduto').value === prod) btn.classList.add('active');
-                btn.onclick = () => selectProduct(prod, btn);
-            } else {
-                btn.className = 'pill-btn disabled';
-            }
-        }
-        container.appendChild(btn);
-    });
-}
-
-function selectProduct(prod, btnElement) {
-    document.querySelectorAll('#visualProdGrid .pill-btn').forEach(b => b.classList.remove('active'));
-    btnElement.classList.add('active');
-    document.getElementById('selProduto').value = prod;
-    document.getElementById('selVelocidade').value = "";
-    updateSpeeds();
-    calculate();
-}
-
 function updateSpeeds() {
-    const op = document.getElementById('selOperadora').value;
-    const prod = document.getElementById('selProduto').value;
-    const uf = document.getElementById('selUF').value;
-    const dur = parseInt(document.getElementById('selPrazo').value) || 36;
-    const container = document.getElementById('visualSpeedGrid');
-    const hiddenInput = document.getElementById('selVelocidade');
-
-    if (!container) return;
-    container.innerHTML = '';
-
-    const allSpeeds = window.VELOCIDADES_DISPONIVEIS || [];
-    let availableSpeeds = [];
-    let hasFilters = (op && prod && uf);
-
-    if (hasFilters) {
-        const itens = window.LPU_DB.filter(i => i.o == op && i.p == prod && i.u == uf && i.d == dur);
-        availableSpeeds = itens.map(i => i.s);
-    }
-
-    allSpeeds.forEach(s => {
-        const btn = document.createElement('div');
-        const labelMain = s >= 1000 ? (s / 1000) + ' Gbps' : s + ' Mbps';
-        btn.innerHTML = `${labelMain}`;
-        if (!hasFilters) {
-            btn.className = 'speed-square disabled';
-        } else {
-            if (availableSpeeds.includes(s)) {
-                btn.className = 'speed-square';
-                if (parseInt(hiddenInput.value) === s) btn.classList.add('active');
-                btn.onclick = () => {
-                    document.querySelectorAll('.speed-square').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    hiddenInput.value = s;
-                    calculate();
-                };
-            } else {
-                btn.className = 'speed-square disabled';
-            }
-        }
-        container.appendChild(btn);
-    });
-
-    if (hiddenInput.value && hasFilters && !availableSpeeds.includes(parseInt(hiddenInput.value))) {
-        hiddenInput.value = "";
-        calculate();
-    }
+    const op = $('selOperadora').value, prod = $('selProduto').value, uf = $('selUF').value, dur = parseInt($('selPrazo').value) || 36;
+    const c = $('visualSpeedGrid'), hidden = $('selVelocidade'); c.innerHTML = '';
+    const has = !!(op && prod && uf);
+    if (!has) { c.innerHTML = '<div class="speed-hint">Escolha operadora, produto e UF para ver as velocidades.</div>'; return; }
+    const avail = new Set(window.LPU_DB.filter(i => i.o == op && i.p == prod && i.u == uf && i.d == dur).map(i => i.s));
+    if (!avail.size) { c.innerHTML = `<div class="speed-hint">Sem velocidades na LPU para ${esc(prod)} em ${esc(uf)} com ${dur} meses.</div>`; }
+    (window.VELOCIDADES_DISPONIVEIS || []).filter(s => avail.has(s)).forEach(s =>
+        c.appendChild(chip(Quote.speedLabel(s), { pressed: parseInt(hidden.value) === s, onclick: () => { hidden.value = s; clearErr('speed'); updateSpeeds(); calculate(); } })));
+    if (hidden.value && !avail.has(parseInt(hidden.value))) hidden.value = '';
 }
 
-// --- GEMINI AI (Geração de Texto) ---
+// Opções avançadas
+function optRow({ id, nome, tag, desc, input }) {
+    const l = document.createElement('label'); l.className = 'opt'; l.htmlFor = id;
+    l.innerHTML = `<input type="checkbox" id="${id}"><span class="opt-main"><span class="opt-name">${esc(nome)}</span>${tag ? `<span class="opt-tag">${esc(tag)}</span>` : ''}${input ? `<input type="number" id="${input}" class="input" min="1" step="1" inputmode="numeric" placeholder="Quantidade de IPs" hidden>` : ''}</span>` +
+        (desc ? `<span class="tipwrap"><span class="tip-btn" tabindex="0" role="img" aria-label="${esc(desc)}">${ic('info')}</span><span class="tip" role="tooltip">${esc(desc)}</span></span>` : '');
+    l.querySelector('.tipwrap')?.addEventListener('click', e => e.preventDefault());
+    return l;
+}
+function renderOptions() {
+    const loc = $('localContainer'); loc.innerHTML = '';
+    window.LOCAL_DB.forEach(o => loc.appendChild(optRow(o)));
+    loc.appendChild(optRow({ id: 'checkRural', nome: 'Zona rural', tag: 'instalação por distância', desc: 'A instalação passa a ser calculada pela distância informada e substitui a instalação urbana.' }));
+    const groups = { local: $('specialsLocal'), circuito: $('specialsCircuito'), ips: $('specialsIps') };
+    Object.values(groups).forEach(g => g.innerHTML = '');
+    window.SPECIALS_DB.forEach(s => groups[s.grupo || 'circuito'].appendChild(optRow({ id: `sp_${s.id}`, nome: s.nome, tag: s.tag, desc: s.desc, input: s.input ? `val_${s.id}` : null })));
+}
+function updateAdvSummary() {
+    const n = document.querySelectorAll('#advBody input[type=checkbox]:checked').length;
+    $('advSummary').textContent = n ? `${n} ${n === 1 ? 'opção ativa' : 'opções ativas'}` : 'SLA, dupla abordagem, IPs, MTU, local e outras regras';
+}
+
+// --- VALIDAÇÃO ---
+function clearErr(f) { const el = document.querySelector(`.field[data-field="${f}"]`); if (el) { el.classList.remove('err'); el.querySelector('.ferr').textContent = ''; } }
+function setErr(f, msg) { const el = document.querySelector(`.field[data-field="${f}"]`); if (el) { el.classList.add('err'); el.querySelector('.ferr').textContent = msg; } }
+function validate(sel) {
+    let first = null;
+    const bad = (f, msg) => { setErr(f, msg); first = first || document.querySelector(`.field[data-field="${f}"]`); };
+    if (!sel.op) bad('op', 'Escolha a operadora.');
+    if (!sel.prod) bad('prod', sel.op ? 'Escolha o produto.' : 'Escolha a operadora primeiro.');
+    if (!sel.uf) bad('uf', 'Escolha a UF.');
+    if (!sel.speed) bad('speed', 'Escolha a velocidade.');
+    let advErr = false;
+    $('errDist').textContent = ''; $('inputDistancia').classList.remove('bad');
+    if (sel.opts.rural) {
+        const d = parseFloat(sel.opts.distancia);
+        if (!(d > 0)) { $('errDist').textContent = 'Informe a distância em metros (maior que zero).'; $('inputDistancia').classList.add('bad'); advErr = true; }
+    }
+    if (isChecked('ips') && !(parseFloat(sel.opts.qtdIp) >= 1)) { toast('Informe a quantidade de IPs fixos (1 ou mais).', 'err'); advErr = true; }
+    if (advErr) { setAdv(true); }
+    return { ok: !first && !advErr, first };
+}
+
+// --- CÁLCULO ---
+function calculate() { renderResult(false); }
+
+function renderResult() {
+    const sel = getSel();
+    const q = Quote.buildQuote(sel, { db: window.LPU_DB, Pricing: window.Pricing });
+    lastQuote = q;
+    const empty = $('resEmpty'), content = $('resContent'), details = $('details');
+    if (!q.ok) {
+        content.hidden = true; details.hidden = true; empty.hidden = false;
+        const inv = q.motivo === 'sem_lpu';
+        empty.classList.toggle('bad', inv);
+        empty.querySelector('.empty-ic').innerHTML = ic(inv ? 'xc' : 'bolt', 'ic');
+        empty.querySelector('h3').textContent = inv ? 'Inviável: sem preço na LPU' : 'Sua cotação aparece aqui';
+        $('emptyMsg').textContent = inv ? q.status.reasons[0] : 'Escolha operadora, produto, UF e velocidade. O prazo já vem marcado em 36 meses.';
+        $('emptyList').innerHTML = inv ? '' : q.missing.map(m => `<li>Falta: ${esc(m)}</li>`).join('');
+        if (compareOpen) renderCompare();
+        return q;
+    }
+    empty.hidden = true; content.hidden = false; details.hidden = false;
+    const s = q.status, d = q.display;
+    $('badge').className = 'badge ' + s.level;
+    $('badge').querySelector('.b-ic').innerHTML = ic(s.level === 'viavel' ? 'checkc' : s.level === 'atencao' ? 'alert' : 'xc', 'ic');
+    $('badge').querySelector('.b-ic svg').setAttribute('style', 'width:26px;height:26px');
+    $('badgeTxt').textContent = s.label;
+    $('reasons').innerHTML = s.reasons.map(r => `<li>${esc(r)}</li>`).join('');
+    $('viab').style.setProperty('--st', s.level);
+
+    $('resMensal').textContent = money(d.mensal);
+    $('resInstalacao').textContent = money(d.inst);
+    const notaI = sel.opts.rural ? ' | Instalação zona rural' : '';
+    $('resMensalObs').textContent = (d.sub ? `${d.rotulo} | ${d.sub.rotulo}: ${money(d.sub.mensal)}` : d.rotulo) + d.nota;
+    $('resInstalacaoObs').textContent = (d.sub ? `${d.rotulo} | ${d.sub.rotulo}: ${money(d.sub.inst)}` : d.rotulo) + notaI;
+    $('metaLine').innerHTML = [['Prazo', `${sel.dur} meses`], ['Velocidade', Quote.speedLabel(sel.speed)], ['Operadora', sel.op], ['Produto', sel.prod], ['UF', sel.uf]]
+        .map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
+
+    renderPrazos(q);
+    renderComposition(q);
+    $('factsList').innerHTML = q.factors.map(f => `<li>${ic('check')}${esc(f.label)}</li>`).join('');
+    const ig = $('factsIgnored'); ig.hidden = !q.ignorados.length;
+    ig.textContent = q.ignorados.length ? `Marcado, mas sem efeito no preço: ${q.ignorados.join(', ')}.` : '';
+    renderDados(q); renderResumo(q);
+
+    const sig = JSON.stringify([sel.op, sel.prod, sel.uf, sel.speed, sel.prazos, sel.opts]);
+    if (sig !== lastSig) {
+        lastSig = sig;
+        liveText = Quote.buildCommercialText(q);
+        $('emailTemplate').value = liveText; dirty = false;
+        $('iaBody').className = 'ia-empty';
+        $('iaBody').textContent = 'Gere observações sobre instalação, fatores de maior impacto e prazo, usando apenas os dados desta cotação.';
+        document.querySelectorAll('.m-v, .viab').forEach(el => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
+    }
+    if (compareOpen) renderCompare();
+    return q;
+}
+
+const valsByMode = (r, mode) => mode === 'sem' ? [r.mensalClean, r.instalacaoClean] : [r.mensalFull, r.instalacaoFull];
+
+function renderPrazos(q) {
+    const box = $('prazosTable');
+    if (q.porPrazo.length < 2) { box.hidden = true; return; }
+    box.hidden = false;
+    const mode = q.sel.impostoMode;
+    box.innerHTML = `<div class="table-wrap"><table class="tbl"><thead><tr><th>Prazo</th><th class="n">Mensalidade</th><th class="n">Instalação</th></tr></thead><tbody>` +
+        q.porPrazo.map(p => { if (!p.ok) return `<tr><td>${p.dur} meses</td><td class="n na" colspan="2">Sem valor na LPU</td></tr>`; const [m, i] = valsByMode(p.r, mode);
+            return `<tr class="${p.dur === q.sel.dur ? 'cur' : ''}"><td>${p.dur} meses${p.dur === q.sel.dur ? '<span class="tag">principal</span>' : ''}</td><td class="n">${money(m)}</td><td class="n">${money(i)}</td></tr>`; }).join('') + '</tbody></table></div>';
+}
+
+function stepVal(p) { return p.tipo === 'add' ? `<span class="v pos">+ ${money(p.valor)}</span>` : `<span class="v ${p.pct < 0 ? 'neg' : 'pos'}">${Quote.fmtPct(p.pct)}</span>`; }
+
+function renderComposition(q) {
+    const c = q.composition, box = $('compoSimple'), det = $('compoDetail');
+    if (!c.consistente) { box.innerHTML = '<p class="note">Não foi possível montar a composição desta combinação com segurança. O valor final do painel continua correto.</p>'; det.innerHTML = ''; $('btnDetail').hidden = true; return; }
+    $('btnDetail').hidden = false;
+    const mode = q.sel.impostoMode;
+    const block = (titulo, bloco, baseLabel, finalLabel, fullVal, tax) => {
+        let h = `<div class="compo-sub">${titulo}</div>`;
+        if (baseLabel) h += `<div class="compo-row base"><span>${baseLabel}</span><span class="v">${money(bloco.base)}</span></div>`;
+        h += bloco.steps.length ? bloco.steps.map(p => `<div class="compo-row"><span>${esc(p.label)}</span>${stepVal(p)}</div>`).join('') : '<div class="compo-row"><span>Sem fatores adicionais</span><span class="v">—</span></div>';
+        h += `<div class="compo-row final"><span>${finalLabel}</span><span class="v">${money(bloco.final)}</span></div>`;
+        if (mode !== 'sem') h += `<div class="compo-row"><span>Com impostos (x${Quote.fmtNum(tax, 4)})</span><span class="v">${money(fullVal)}</span></div>`;
+        return h;
+    };
+    box.innerHTML = block('Mensalidade (sem impostos)', c.mensal, 'LPU base', 'Mensalidade final', q.r.mensalFull, c.impostos.taxM) +
+        block('Instalação (sem impostos)', c.inst, c.inst.rural ? '' : 'LPU base', 'Instalação final', q.r.instalacaoFull, c.impostos.taxI);
+
+    const rows = (titulo, bloco, base) => `<div class="compo-sub">${titulo}</div>` +
+        (base !== null ? `<div class="compo-row"><span class="lbl-w">LPU base</span><span class="v">${money(base)}</span></div>` : '') +
+        bloco.steps.map(p => `<div class="compo-row"><span class="lbl-w"><span>${esc(p.label)}</span><span class="t">${p.tipo === 'add' ? 'soma' : p.tipo === 'faixa' ? 'faixa aplicada ao total' : 'multiplica'} | subtotal ${money(p.total)}</span></span>${stepVal(p)}</div>`).join('');
+    const f = q.r.fatores;
+    det.innerHTML = rows('Mensalidade: passo a passo', c.mensal, c.mensal.base) + rows('Instalação: passo a passo', c.inst, c.inst.rural ? null : c.inst.base) +
+        `<div class="compo-sub">Impostos</div><p class="note" style="margin-top:0">Razão da própria linha da LPU (com impostos ÷ sem impostos): mensalidade x${Quote.fmtNum(c.impostos.taxM, 4)}, instalação x${Quote.fmtNum(c.impostos.taxI, 4)}.</p>`;
+}
+
+function renderDados(q) {
+    const regras = Quote.characteristics(q);
+    const linhas = [
+        ['Data da cotação', new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })],
+        ['Tabela utilizada', q.fonte || 'Sem planilha de referência no projeto'],
+        ['Regras aplicadas', regras.length ? `${regras.length}: ${regras.join(', ')}` : 'Nenhuma além da LPU'],
+        ['Faixa de volume', q.r.faixa === 0.65 ? 'x0,65 (acima de R$ 15 mil)' : q.r.faixa === 0.85 ? 'x0,85 (R$ 10 a 15 mil)' : 'Não aplicada'],
+        ['Atualização das tabelas', 'Não informada nos arquivos']
+    ];
+    $('dadosList').innerHTML = linhas.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
+}
+
+function summaryRows(q) {
+    const d = q.display, car = Quote.characteristics(q);
+    const rows = [['Operadora', q.sel.op], ['Produto', q.sel.prod], ['UF', q.sel.uf], ['Velocidade', Quote.speedLabel(q.sel.speed)], ['Prazo', `${q.sel.dur} meses`],
+        [`Mensalidade (${d.rotulo.toLowerCase()})`, money(d.mensal)], [`Instalação (${d.rotulo.toLowerCase()})`, money(d.inst)]];
+    if (d.sub) rows.push(['Mensalidade (sem impostos)', money(d.sub.mensal)], ['Instalação (sem impostos)', money(d.sub.inst)]);
+    rows.push(['Características adicionais', car.length ? car.join(', ') : 'Nenhuma']);
+    return rows;
+}
+function renderResumo(q) { $('summaryList').innerHTML = summaryRows(q).map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join(''); }
+
+// --- COMPARAÇÃO (sem ranking) ---
+function renderCompare() {
+    const sel = getSel(), tbl = $('cmpTable'), note = $('cmpNote');
+    if (!sel.prod || !sel.uf || !sel.speed) {
+        tbl.innerHTML = ''; note.textContent = 'Escolha produto, UF e velocidade para comparar as operadoras com os mesmos parâmetros.'; return;
+    }
+    const rows = Quote.compareOperators(sel, { db: window.LPU_DB, Pricing: window.Pricing });
+    const mode = sel.impostoMode, lbl = mode === 'sem' ? 'sem impostos' : 'com impostos';
+    note.textContent = `${sel.prod} ${Quote.speedLabel(sel.speed)} em ${sel.uf}, ${sel.dur} meses, valores ${mode === 'ambos' ? 'com impostos' : lbl}, com as mesmas opções avançadas. Ordem alfabética, sem classificação.`;
+    tbl.innerHTML = `<thead><tr><th>Operadora</th><th class="n">Mensalidade</th><th class="n">Instalação</th><th>Prazo</th></tr></thead><tbody>` +
+        rows.map(r => r.ok
+            ? `<tr class="${r.atual ? 'cur' : ''}"><td>${esc(r.op)}${r.atual ? '<span class="tag">selecionada</span>' : ''}</td><td class="n">${money(r.display.mensal)}</td><td class="n">${money(r.display.inst)}</td><td>${sel.dur} meses</td></tr>`
+            : `<tr><td>${esc(r.op)}</td><td class="n na" colspan="2">Sem preço na LPU</td><td>${sel.dur} meses</td></tr>`).join('') + '</tbody>';
+}
+function setCompare(open, scroll) {
+    compareOpen = open; $('cardCompare').hidden = !open;
+    if (open) { renderCompare(); if (scroll) $('cardCompare').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
+// --- HISTÓRICO ---
+function fmtDate(iso) { try { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } }
+function saveToHistory(q) {
+    const s = q.sel, d = q.display;
+    const list = Historico.add({ op: s.op, prod: s.prod, uf: s.uf, speed: s.speed, prazos: s.prazos, dur: s.dur, opts: s.opts, impostoMode: s.impostoMode, mensal: d.mensal, inst: d.inst, rotulo: d.rotulo });
+    renderHistory(); return !!list;
+}
+function renderHistory() {
+    const list = Historico.load(), box = $('histList');
+    $('histCount').hidden = !list.length; $('histCount').textContent = list.length;
+    $('btnClearHist').hidden = !list.length;
+    if (!list.length) { box.innerHTML = '<div class="hist-empty"><strong>Nenhuma cotação salva ainda.</strong><br>Cada vez que você usar "Calcular cotação", ela é registrada aqui, neste navegador.</div>'; return; }
+    box.innerHTML = list.map(e => `<article class="hist-item" data-id="${esc(e.id)}">
+        <div class="hist-top"><span>${esc(fmtDate(e.data))}</span><span>${esc(e.uf)} | ${esc(e.dur)} meses</span></div>
+        <div class="hist-title">${esc(e.op)} | ${esc(e.prod)} | ${esc(Quote.speedLabel(e.speed))}</div>
+        <div class="hist-vals"><span>Mensalidade<b>${money(e.mensal)}</b></span><span>Instalação<b>${money(e.inst)}</b></span><span>${esc(e.rotulo || '')}</span></div>
+        <div class="hist-act"><button type="button" class="btn secondary sm" data-act="open">${ic('open')}Abrir</button><button type="button" class="btn ghost sm" data-act="dup">${ic('copy')}Duplicar</button><button type="button" class="btn ghost sm" data-act="del">${ic('trash')}Excluir</button></div></article>`).join('');
+}
+function openEntry(e) {
+    if (!window.LPU_DB.some(i => i.o === e.op)) { toast('Essa operadora não existe mais nas tabelas.', 'err'); return; }
+    prazosSelecionados = (e.prazos && e.prazos.length ? e.prazos : [e.dur]).filter(p => PRAZOS_DISPONIVEIS.includes(p));
+    if (!prazosSelecionados.length) prazosSelecionados = [...PRAZOS_INICIAIS];
+    $('selOperadora').value = e.op; $('selProduto').value = e.prod; $('selUF').value = e.uf; $('selVelocidade').value = e.speed;
+    setImposto(e.impostoMode || 'sem', true);
+    renderPrazoButtons(); renderOperators(); updateProducts(); renderVisualUF(); updateSpeeds(); setOptions(e.opts);
+    if (Object.values(e.opts || {}).some(Boolean)) setAdv(true);
+    calculate(); toggleDrawer(false); toast('Cotação aberta.');
+    $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+let drawerOpener = null;
+function toggleDrawer(open) {
+    const dr = $('drawer'), sc = $('scrim');
+    if (open) { drawerOpener = document.activeElement; renderHistory(); sc.hidden = false; requestAnimationFrame(() => sc.classList.add('on')); dr.classList.add('on'); dr.setAttribute('aria-hidden', 'false'); dr.focus(); }
+    else { sc.classList.remove('on'); setTimeout(() => { if (!dr.classList.contains('on')) sc.hidden = true; }, 260); dr.classList.remove('on'); dr.setAttribute('aria-hidden', 'true'); if (drawerOpener && drawerOpener.focus) drawerOpener.focus(); }
+}
+
+// --- COPIAR ---
+async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {
+        const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+        let ok = false; try { ok = document.execCommand('copy'); } catch (er) { ok = false; } ta.remove(); return ok;
+    }
+}
+function flash(btn, txt) {
+    const l = btn.querySelector('.lbl'), old = l.textContent; l.textContent = txt; btn.classList.add('done');
+    setTimeout(() => { l.textContent = old; btn.classList.remove('done'); }, 1800);
+}
+async function copySummary(btn) {
+    if (!lastQuote || !lastQuote.ok) return;
+    if (await copyText(Quote.buildSummaryText(lastQuote))) { flash(btn, 'Resumo copiado!'); toast('Resumo copiado!'); } else toast('Não foi possível copiar. Selecione o texto e copie manualmente.', 'err');
+}
+async function copyEmail() {
+    const v = $('emailTemplate').value; if (!v) return;
+    if (await copyText(v)) { flash($('btnCopy'), 'Texto copiado!'); toast('Texto comercial copiado!'); } else toast('Não foi possível copiar. Selecione o texto e copie manualmente.', 'err');
+}
+
+// --- IA (via servidor; a chave nunca fica no navegador) ---
+function busy(btn, on) { btn.classList.toggle('loading', on); btn.disabled = on; }
 async function callGeminiAI() {
-    const btn = document.getElementById('btnMagicAI');
-    const txtArea = document.getElementById('emailTemplate');
-    // Sua API Key aqui (mantida a que você enviou anteriormente)
-    const API_KEY = "AIzaSyAVAsqH9Y0scMOgBZVIaRA9nQjJPCteux4";
-
-    const op = document.getElementById('selOperadora').value;
-    const prod = document.getElementById('selProduto').value;
-    const uf = document.getElementById('selUF').value;
-    const speed = document.getElementById('selVelocidade').value;
-    const prazo = document.getElementById('selPrazo').value;
-    const preco = document.getElementById('resMensal').innerText;
-    const propostaAtual = txtArea.value;
-
-    const reportDiv = document.getElementById('analysisReport');
-    const geoContext = (reportDiv && !reportDiv.classList.contains('hidden')) ? reportDiv.innerText : "Área Padrão";
-
-    const prompt = `
-        Aja como um consultor comercial de telecom (Sitelbra Wholesale).
-        Reescreva esta proposta de forma persuasiva, mantendo TODOS os valores de cada prazo do texto abaixo.
-        
-        DADOS:
-        - Link: ${prod} ${speed}Mbps em ${uf}
-        - Contratos: ${prazosSelecionados.slice().sort((a, b) => a - b).join(', ')} meses
-        - NÃO cite o nome da operadora/empresa fornecedora na proposta.
-        - Valor: ${preco}
-        - Contexto Geográfico: ${geoContext}
-        
-        Se houver taxas extras (Rural/Shopping/Industrial), justifique como investimento em infraestrutura dedicada e SLA.
-        Seja breve.
-
-        PROPOSTA ATUAL:
-        ${propostaAtual}
-    `;
-
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `Gerando...`;
-    btn.disabled = true;
-
+    const q = lastQuote; if (!q || !q.ok) return;
+    const btn = $('btnMagicAI'); $('errTexto').textContent = ''; busy(btn, true);
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        const data = await response.json();
-        if (data.candidates && data.candidates[0].content) {
-            txtArea.value = data.candidates[0].content.parts[0].text;
-        }
-    } catch (error) {
-        console.error(error);
-        alert("Erro na IA. Verifique se a chave API tem permissão.");
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
+        const payload = Quote.buildAiPayload(q, $('emailTemplate').value);
+        delete payload.operadora; // o texto ao cliente não cita a operadora
+        const out = await AI.melhorar(payload);
+        $('emailTemplate').value = out; dirty = true; toast('Texto melhorado. Revise antes de enviar.');
+    } catch (e) { $('errTexto').textContent = e.message; toast(e.message, 'err'); } finally { busy(btn, false); }
 }
+async function analyzeAI() {
+    const q = lastQuote; if (!q || !q.ok) return;
+    const btn = $('btnAnalyze'), box = $('iaBody'); busy(btn, true);
+    try {
+        const out = await AI.analisar(Quote.buildAiPayload(q, ''));
+        const itens = out.split(/\n+/).map(l => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean);
+        box.className = ''; box.innerHTML = `<ul class="ia-out">${itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p class="ia-note">Gerado por IA a partir dos dados desta cotação. Não altera valores: confira antes de usar.</p>`;
+    } catch (e) { box.className = 'ia-err'; box.textContent = e.message; toast(e.message, 'err'); } finally { busy(btn, false); }
+}
+
+// --- EXPORTAR PROPOSTA (PDF via impressão do navegador) ---
+function exportProposal() {
+    const q = lastQuote; if (!q || !q.ok) return;
+    const s = q.sel, d = q.display, c = q.composition, car = Quote.characteristics(q);
+    const steps = b => b.steps.map(p => `<tr><td>${esc(p.label)}</td><td class="n">${p.tipo === 'add' ? '+ ' + money(p.valor) : Quote.fmtPct(p.pct)}</td></tr>`).join('') || '<tr><td colspan="2">Sem fatores adicionais</td></tr>';
+    const prazos = q.porPrazo.filter(p => p.ok).map(p => { const [m, i] = valsByMode(p.r, s.impostoMode === 'sem' ? 'sem' : 'com'); return `<tr><td>${p.dur} meses</td><td class="n">${money(m)}</td><td class="n">${money(i)}</td></tr>`; }).join('');
+    $('printRoot').innerHTML = `
+        <div class="p-head"><div class="p-brand"><div class="p-logo">S</div><div><h1>Proposta comercial</h1><div class="p-sub">Sitelbra Wholesale</div></div></div><div class="p-sub">${esc(new Date().toLocaleDateString('pt-BR'))}<br>Validade: 30 dias</div></div>
+        <section><h2>Dados da cotação</h2><table><tr><td>Produto</td><td class="n">${esc(s.prod)}</td></tr><tr><td>UF</td><td class="n">${esc(s.uf)}</td></tr><tr><td>Velocidade</td><td class="n">${Quote.speedLabel(s.speed)}</td></tr><tr><td>Prazo contratual</td><td class="n">${s.dur} meses</td></tr></table></section>
+        <section><h2>Valores (${esc(d.rotulo.toLowerCase())})</h2><div class="p-big"><div>Mensalidade<b>${money(d.mensal)}</b></div><div>Instalação<b>${money(d.inst)}</b></div></div>
+        ${q.porPrazo.length > 1 ? `<table><tr><th>Prazo</th><th class="n">Mensalidade</th><th class="n">Instalação</th></tr>${prazos}</table>` : ''}</section>
+        <section><h2>Características</h2><p>${car.length ? esc(car.join(', ')) : 'Configuração padrão, sem adicionais.'}</p></section>
+        ${c.consistente ? `<section><h2>Composição do preço</h2><table><tr><th>Mensalidade</th><th class="n"></th></tr><tr><td>LPU base</td><td class="n">${money(c.mensal.base)}</td></tr>${steps(c.mensal)}<tr><td><b>Mensalidade final (sem impostos)</b></td><td class="n"><b>${money(c.mensal.final)}</b></td></tr></table><br>
+        <table><tr><th>Instalação</th><th class="n"></th></tr>${c.inst.rural ? '' : `<tr><td>LPU base</td><td class="n">${money(c.inst.base)}</td></tr>`}${steps(c.inst)}<tr><td><b>Instalação final (sem impostos)</b></td><td class="n"><b>${money(c.inst.final)}</b></td></tr></table></section>` : ''}
+        <section><h2>Texto comercial</h2><pre>${esc($('emailTemplate').value)}</pre></section>
+        <div class="p-foot">Documento gerado pelo sistema de cotação Sitelbra Wholesale. Valores sujeitos à confirmação de viabilidade técnica.</div>`;
+    const oldTitle = document.title; document.title = `Proposta Sitelbra - ${s.prod} ${Quote.speedLabel(s.speed)} ${s.uf}`;
+    const done = () => { document.title = oldTitle; $('printRoot').innerHTML = ''; window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    toast('Na janela de impressão, escolha "Salvar como PDF".');
+    setTimeout(() => window.print(), 250);
+}
+
+// --- UI auxiliar ---
+function setAdv(open) { $('btnAdv').setAttribute('aria-expanded', String(open)); $('advBody').hidden = !open; }
+function setImposto(mode, silent) {
+    $('selImpostoMode').value = mode;
+    document.querySelectorAll('#impostoSeg button').forEach(b => { const on = b.dataset.mode === mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+    if (!silent) calculate();
+}
+
+// Botão principal: valida, mostra loading, salva no histórico e leva ao resultado
+function onCalcClick() {
+    if (computing) return;
+    ['op', 'prod', 'uf', 'speed'].forEach(clearErr);
+    const sel = getSel(), v = validate(sel);
+    if (!v.ok) { if (v.first) v.first.scrollIntoView({ behavior: 'smooth', block: 'center' }); toast('Revise os campos destacados.', 'err'); calculate(); return; }
+    computing = true; const btn = $('btnCalc'); busy(btn, true);
+    setTimeout(() => {
+        const q = renderResult();
+        busy(btn, false); computing = false;
+        if (q.ok) {
+            const saved = saveToHistory(q);
+            toast(saved ? 'Cotação calculada e salva no histórico.' : 'Cotação calculada. O histórico não pôde ser salvo neste navegador.', saved ? 'ok' : 'err');
+            if (window.matchMedia('(max-width: 1100px)').matches) $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else toast(q.status ? q.status.reasons[0] : 'Revise os campos.', 'err');
+    }, 380);
+}
+
+// --- INICIALIZAÇÃO ---
+document.addEventListener('DOMContentLoaded', () => {
+    $('currentDate').textContent = new Date().toLocaleDateString('pt-BR');
+    renderOptions(); renderOperators(); renderVisualUF(); renderPrazoButtons(); updateProducts(); updateSpeeds(); hydrateIcons(); renderHistory();
+
+    $('btnCalc').addEventListener('click', onCalcClick);
+    $('btnAdv').addEventListener('click', () => setAdv($('btnAdv').getAttribute('aria-expanded') !== 'true'));
+
+    // Opções avançadas: um único listener delegado
+    $('advBody').addEventListener('change', e => {
+        const t = e.target;
+        if (t.id === 'checkRural') $('ruralOptions').hidden = !t.checked;
+        if (t.id === 'sp_ips' && $('val_ips')) { $('val_ips').hidden = !t.checked; if (t.checked) $('val_ips').focus(); }
+        updateAdvSummary(); calculate();
+    });
+    $('advBody').addEventListener('input', e => { if (e.target.type === 'number') { e.target.classList.remove('bad'); $('errDist').textContent = ''; calculate(); } });
+
+    $('impostoSeg').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b) setImposto(b.dataset.mode); });
+    $('btnCopySummary').addEventListener('click', e => copySummary(e.currentTarget));
+    $('btnCopySummary2').addEventListener('click', e => copySummary(e.currentTarget));
+    $('btnCopy').addEventListener('click', copyEmail);
+    $('btnMagicAI').addEventListener('click', callGeminiAI);
+    $('btnAnalyze').addEventListener('click', analyzeAI);
+    $('btnRegen').addEventListener('click', () => {
+        if (!lastQuote || !lastQuote.ok) return;
+        if (dirty && !confirm('Substituir o texto atual pelo texto padrão? Suas edições e o texto da IA serão perdidos.')) return;
+        $('emailTemplate').value = Quote.buildCommercialText(lastQuote); dirty = false; toast('Texto regenerado.');
+    });
+    $('emailTemplate').addEventListener('input', () => { dirty = true; });
+    $('btnExport').addEventListener('click', exportProposal);
+    $('btnSaveNow').addEventListener('click', () => { if (lastQuote && lastQuote.ok) toast(saveToHistory(lastQuote) ? 'Cotação salva no histórico.' : 'Não foi possível salvar neste navegador.', 'ok'); });
+    $('btnDetail').addEventListener('click', () => {
+        detailOpen = !detailOpen; $('compoDetail').hidden = !detailOpen; $('btnDetail').setAttribute('aria-expanded', String(detailOpen));
+        $('btnDetail').querySelector('.lbl').textContent = detailOpen ? 'Ocultar cálculo detalhado' : 'Ver cálculo detalhado';
+    });
+    $('compoDetail').hidden = true;
+
+    $('btnOpenCompare').addEventListener('click', () => setCompare(true, true));
+    $('btnCloseCompare').addEventListener('click', () => setCompare(false));
+    $('btnOpenHistory').addEventListener('click', () => toggleDrawer(true));
+    $('btnCloseHistory').addEventListener('click', () => toggleDrawer(false));
+    $('scrim').addEventListener('click', () => toggleDrawer(false));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('drawer').classList.contains('on')) toggleDrawer(false); });
+    $('btnClearHist').addEventListener('click', () => { if (confirm('Excluir todo o histórico de cotações deste navegador?')) { Historico.clear(); renderHistory(); toast('Histórico limpo.'); } });
+    $('histList').addEventListener('click', e => {
+        const b = e.target.closest('button[data-act]'); if (!b) return;
+        const id = b.closest('.hist-item').dataset.id;
+        if (b.dataset.act === 'open') { const en = Historico.get(id); if (en) openEntry(en); }
+        else if (b.dataset.act === 'dup') { Historico.duplicate(id); renderHistory(); toast('Cotação duplicada.'); }
+        else if (b.dataset.act === 'del') { Historico.remove(id); renderHistory(); toast('Cotação excluída.'); }
+    });
+    calculate();
+});
