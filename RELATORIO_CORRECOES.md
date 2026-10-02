@@ -26,3 +26,10 @@
 - ~~A chave da API Gemini estava exposta no script.js~~ → removida do front-end (ver README). **A chave antiga continua pública no histórico do repositório: revogue-a e gere uma nova.**
 
 Testes: `node tests/pricing.test.js`
+
+## Revisão de 02/10/2026 (valores + espaçamento)
+- **Dado corrigido (lpu_cirion.js)**: Cirion L2-MPLS, UFs AC/AP/AM/RO (grupo 3), 36 meses, 500M. A instalação estava com o valor do grupo 2 (R$ 6.840 s/ imp.; R$ 7.976,68 c/ imp.), enquanto 12, 24 e 60 meses trazem R$ 9.576 (c/ imp. R$ 11.167,35). Ajustado para 9.576 / 11.167,3469.
+- **Conferido sem erro**: todas as regras de pricing.js (shopping, aeroporto, indústria, datacenter, fora da urbana, cidade pequena, favela, provedor, SLA, dupla, rádio, comodato, IPs, rural/distância, faixas) batem com o descrito neste relatório; sem duplicatas na LPU; razão de impostos constante por operadora; preços sobem com a velocidade e caem com o prazo.
+- **Visual**: a coluna "Instalação" da tabela de prazos e da aba Comparar ficava cortada (parecia faltar valor) e a aba "Análise IA" saía da tela. Corrigido em style.css, no bloco "RESPIRO" no final do arquivo, que também deixa o espaçamento mais solto. Para ajustar, mexa só nas variáveis no topo desse bloco (--gap-col, --gap-stack, --pad-card, --pad-main, --side-w).
+- **Pendente de confirmação**: MTU 1500 (BDL) soma +200 na mensalidade e **+500** na instalação no código (Q*5), mas este relatório e a versão anterior diziam +100 na instalação. Confira na aba "Projeto Especial" da planilha antes de mudar.
+- **Pendente**: a Oi continua sem planilha de referência (status "Atenção").

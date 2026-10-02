@@ -363,3 +363,159 @@ select.input { appearance: auto; }
 #btnSaveNow .lbl { display: none; }
 #btnSaveNow { padding: 8px 10px; }
 @media (max-width: 720px) { .toasts { top: auto; bottom: 74px; left: 50%; right: auto; transform: translateX(-50%); } }
+
+
+/* =====================================================================
+   RESPIRO - espaçamento mais solto (só espaços; cores, fontes e formas não mudam)
+   Para ajustar o "aperto" mexa só nas variáveis abaixo:
+   valores maiores = mais ar | valores menores = mais compacto.
+   ===================================================================== */
+:root {
+    --gap-col: 24px;            /* espaço entre as 3 colunas */
+    --gap-stack: 18px;          /* espaço entre os cartões empilhados */
+    --pad-card: 20px 22px;      /* respiro interno dos cartões */
+    --gap-opt: 8px;             /* espaço entre as opções da barra lateral */
+    --pad-main: 24px 28px 28px; /* margem da área principal */
+    --side-w: 320px;            /* largura da barra lateral */
+}
+body { line-height: 1.55; }
+
+/* Topo */
+.topbar { padding: 12px 28px 15px; gap: 20px; }
+.top-actions { gap: 10px; }
+
+/* Barra lateral */
+.workspace { grid-template-columns: var(--side-w) minmax(0, 1fr); }
+.sidebar { padding: 24px 22px 40px; }
+.section-title { margin: 28px 0 14px; }
+.section-title:first-child { margin-top: 0; }
+.form-group { margin-bottom: 22px; }
+.form-group > label { margin-bottom: 12px; }
+.form-group.box { padding: 16px; }
+.form-group.box label { margin-bottom: 10px; }
+.adv { margin-top: 8px; }
+.opts { gap: var(--gap-opt); }
+.opt { gap: 12px; padding: 12px 14px; }
+.opt-main { gap: 4px; }
+.opt-name { font-size: 13.5px; line-height: 1.4; }
+.opt .input { margin-top: 10px; }
+.rural { margin: 10px 0 8px; padding: 14px; }
+.rural label { margin-bottom: 8px; }
+
+/* Área principal e colunas */
+.main { padding: var(--pad-main); }
+.main-head { margin-bottom: 20px; gap: 6px 14px; }
+.tri { gap: var(--gap-col); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); }
+.col { gap: var(--gap-stack); padding: 4px 6px 16px 2px; }
+.step-header { gap: 12px; }
+.card { padding: var(--pad-card); }
+.card-label { margin-bottom: 14px; }
+.chips { gap: 10px; }
+.chip { padding: 9px 16px; }
+.chips.small .chip { padding: 8px 14px; }
+.uf-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); }
+.uf-grid .chip { padding: 9px 0; }
+.speed-grid { gap: 8px; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); }
+.speed-grid .chip { padding: 10px 2px; }
+.btn.xl { margin-top: 6px; padding: 16px 20px; }
+.btn.xl#btnCalc { bottom: 4px; }
+
+/* Cartão de resultado */
+.result { padding: 22px; }
+.viab { padding-bottom: 18px; gap: 12px 20px; }
+.reasons { gap: 8px; font-size: 13px; }
+.badge { padding: 5px 16px 5px 10px; }
+.money { gap: 16px; margin: 20px 0 16px; }
+.m-blk { padding: 16px 18px; }
+.m-v { margin: 8px 0 6px; }
+.meta { margin: 0 0 18px; line-height: 1.8; }
+.prazos { margin: 0 0 18px; }
+.fatores { margin: 0 0 18px; }
+.fatores .card-label { margin-bottom: 12px; }
+.facts { gap: 8px; }
+.facts li { padding: 6px 12px 6px 9px; }
+.result .actions { margin-top: 6px; gap: 10px; }
+.result .actions .btn { padding: 10px 14px; }
+.empty { padding: 32px 18px; }
+.empty-ic { margin-bottom: 16px; }
+.miss { margin-top: 18px; gap: 8px; }
+
+/* Abas e painéis (as 5 abas cabem sem cortar; a tabela de prazos mostra a Instalação) */
+.tabs { gap: 0; padding: 0 4px; }
+.tab { flex: 1 1 auto; padding: 14px 6px; font-size: 12.5px; text-align: center; }
+.panel { padding: 22px; }
+.panel-head { margin-bottom: 18px; }
+.panel-head.sub { margin-top: 26px; padding-top: 20px; }
+.noq-msg { padding: 14px 0; }
+.compo-row { padding: 11px 0; }
+.compo-sub { margin: 20px 0 4px; }
+.compo-row.final { margin-top: 8px; padding-top: 14px; }
+.compo-detail { margin-top: 20px; padding-top: 10px; }
+.kv > div { padding: 11px 0; }
+.textarea { padding: 16px; min-height: 200px; }
+.actions { gap: 10px; margin-top: 16px; }
+.ia-out { gap: 12px; }
+.ia-out li { padding: 12px 16px; }
+.ia-note { margin-top: 14px; }
+.tbl { min-width: 0; }
+.tbl th, .tbl td { padding: 12px; }
+
+/* Histórico */
+.drawer-head { padding: 18px 22px; }
+.hist-list { padding: 18px; gap: 14px; }
+.hist-item { padding: 18px; }
+.hist-top { margin-bottom: 8px; }
+.hist-vals { margin: 12px 0 14px; gap: 24px; }
+.hist-act { gap: 8px; }
+
+/* Telas médias: mantém o respiro sem estourar a largura */
+@media (max-width: 1440px) {
+    :root { --side-w: 300px; --gap-col: 20px; --pad-card: 18px 20px; --pad-main: 22px 24px 26px; }
+}
+@media (max-width: 1280px) {
+    :root { --side-w: 288px; --gap-col: 16px; --gap-stack: 16px; --pad-card: 16px 18px; --pad-main: 20px 20px 24px; }
+    .tri { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr); }
+    .sidebar { padding: 22px 18px 36px; }
+    .result, .panel { padding: 18px; }
+}
+@media (min-width: 1700px) {
+    :root { --side-w: 348px; --gap-col: 32px; --gap-stack: 22px; --pad-card: 24px 26px; --pad-main: 30px 40px 34px; }
+    .result, .panel { padding: 26px; }
+}
+@media (max-width: 1100px) {
+    .sidebar { padding: 20px; }
+    .main { padding: 22px 20px 56px; }
+    .tri { gap: 24px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .col { padding: 2px 2px 6px; }
+}
+@media (max-width: 720px) {
+    .topbar { padding: 10px 14px 13px; }
+    .sidebar { padding: 18px 16px; }
+    .main { padding: 20px 14px 72px; }
+    .tri { gap: 26px; grid-template-columns: 1fr; }
+    .card, .result, .panel { padding: 18px; }
+    .money { gap: 12px; }
+    .tab { flex: 1 0 auto; padding: 14px 10px; }
+}
+
+/* Cartão das abas: a faixa de abas encosta nas bordas (sem respiro interno no cartão, só nos painéis) */
+.tabs-card { padding: 0; }
+
+/* Tabela Comparar: nome e etiqueta "selecionada" empilhados; se faltar largura, a coluna Prazo
+   some (o prazo já aparece na frase acima da tabela) para a Instalação nunca ficar cortada */
+.table-wrap { container-type: inline-size; }
+#cmpTable th, #cmpTable td { padding: 12px 10px; }
+#cmpTable td:first-child .tag { display: block; width: fit-content; margin: 4px 0 0; }
+@container (max-width: 400px) {
+    #cmpTable th:nth-child(4), #cmpTable td:nth-child(4) { display: none; }
+}
+
+/* Ajuste fino das tabelas e abas em larguras menores (nada pode ficar cortado) */
+.tbl th, .tbl td { padding: 12px 10px; }
+.tbl td:first-child .tag { display: block; width: fit-content; margin: 4px 0 0; }
+@container (max-width: 430px) {
+    #cmpTable th:nth-child(4), #cmpTable td:nth-child(4) { display: none; }
+}
+@media (max-width: 1300px) {
+    .tab { padding: 14px 4px; font-size: 12px; }
+}
