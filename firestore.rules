@@ -1,0 +1,22 @@
+// firestore.rules - cole em Firebase Console > Firestore Database > Regras (ou: firebase deploy --only firestore:rules)
+// IMPORTANTE: no Console, em Authentication > Configurações > Ações do usuário, DESLIGUE o cadastro público ("criação de usuário"),
+// e crie os usuários você mesmo em Authentication > Usuários. Assim "logado" = alguém que você liberou.
+// Quem está logado LÊ a base de ativos. Só os e-mails da lista abaixo ESCREVEM (importam a planilha).
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    function admin() {
+      return logado()
+        && request.auth.token.email in [
+          'abneroliveira19072004@gmail.com'   // <- adicione outros e-mails de quem pode importar
+        ];
+    }
+
+    match /ativos/{id} { allow read: if logado(); allow write: if admin(); }
+    match /meta/{id}   { allow read: if logado(); allow write: if admin(); }
+
+    match /{outro=**} { allow read, write: if false; }
+  }
+}

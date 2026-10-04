@@ -7,6 +7,18 @@
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const MAX_BYTES = 40000;
+// Proteção opcional: REQUIRE_AUTH=1 exige login do Firebase (token enviado pelo site). Precisa de FIREBASE_API_KEY (a apiKey do firebase-config.js).
+async function authorized(req) {
+    if (process.env.REQUIRE_AUTH !== '1') return true;
+    const m = /^Bearer (.+)$/.exec(req.headers.authorization || '');
+    if (!m || !process.env.FIREBASE_API_KEY) return false;
+    try {
+        const r = await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + encodeURIComponent(process.env.FIREBASE_API_KEY), {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: m[1] }) });
+        const j = await r.json().catch(() => ({}));
+        return r.ok && Array.isArray(j.users) && j.users.length > 0;
+    } catch (e) { return false; }
+}
 const hits = new Map(); // limite simples por IP (em memória)
 
 const SISTEMA = [
@@ -23,6 +35,13 @@ Regras:
 - NÃO cite o nome da operadora/fornecedora (o campo "operadora" é interno).
 - Se houver características adicionais (rural, shopping, indústria, SLA etc.), pode justificá-las brevemente como infraestrutura dedicada, sem inventar benefícios.
 - Seja breve. Devolva apenas o texto final, sem comentários.
+
+DADOS:
+${JSON.stringify(d, null, 2)}`,
+    rede: d => `Faça um parecer comercial para o time interno sobre usar a REDE PRÓPRIA da Sitelbra para atender este cliente, em vez de comprar de terceiros.
+Entregue de 3 a 6 observações curtas, uma por linha, cada uma começando com "- ".
+Cubra: qual é o link mais promissor e por quê (distância e velocidade vs. o pedido); se a velocidade corresponde ou falta banda; como a distância/extensão pesa no custo; como isso se compara à referência de LPU de terceiros (só se houver valores nos dados); o que conferir antes de ofertar.
+Regras: use SOMENTE os dados. A velocidade do link é a do circuito cadastrado, NÃO é banda livre: nunca diga que há capacidade disponível. Se o endereço foi localizado por geocodificação, lembre que a posição é aproximada. Não invente preços, custos de obra, prazos ou viabilidade técnica. Se não houver link próximo, diga isso e sugira ampliar o raio ou usar a LPU.
 
 DADOS:
 ${JSON.stringify(d, null, 2)}`,
@@ -68,6 +87,7 @@ async function readBody(req) {
 module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return send(res, 405, { error: 'Método não permitido.' });
 
+    if (!(await authorized(req))) return send(res, 401, { error: 'Faça login (aba Rede própria) para usar a IA.' });
     const key = process.env.GEMINI_API_KEY;
     if (!key) return send(res, 503, { error: 'IA não configurada. Defina GEMINI_API_KEY no servidor (veja o README).' });
 

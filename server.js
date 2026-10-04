@@ -12,9 +12,9 @@ try {
 
 const aiHandler = require('./api/ai.js');
 const PORT = process.env.PORT || 3000;
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.ico': 'image/x-icon' };
 // Só arquivos públicos do front-end, na raiz. Nunca .env, api/, tests/ ou server.js.
-const PUBLICO = /^\/[A-Za-z0-9_-]+\.(html|css|js|svg|png|ico)$/;
+const PUBLICO = /^\/[A-Za-z0-9_-]+\.(html|css|js|svg|png|jpg|jpeg|ico)$/;
 
 http.createServer((req, res) => {
     const url = (req.url || '/').split('?')[0];

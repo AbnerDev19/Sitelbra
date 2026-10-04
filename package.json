@@ -5,7 +5,7 @@
   "description": "Sitelbra Wholesale - plataforma interna de cotação",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/pricing.test.js && node tests/quote.test.js"
+    "test": "node tests/pricing.test.js && node tests/quote.test.js && node tests/rede.test.js"
   },
   "engines": { "node": ">=18" }
 }

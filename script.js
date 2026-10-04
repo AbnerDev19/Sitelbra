@@ -113,13 +113,51 @@ function selectProduct(p) {
     clearErr('prod'); updateProducts(); updateSpeeds(); calculate();
 }
 
+// Cor de cada estado = quanto a mensalidade da LPU (operadora + produto + prazo + velocidade escolhidos) fica acima da UF mais barata.
+// Muda sozinha quando você troca operadora, produto, prazo ou velocidade. Faixas editáveis aqui:
+const UF_TIERS = [
+    { id: 't1', max: 1.10, label: 'Barato', hint: 'até 10% acima da UF mais barata' },
+    { id: 't2', max: 1.30, label: 'Médio', hint: 'de 10% a 30% acima' },
+    { id: 't3', max: 1.70, label: 'Caro', hint: 'de 30% a 70% acima' },
+    { id: 't4', max: Infinity, label: 'Muito caro', hint: 'mais de 70% acima: local ruim' }
+];
+function ufTiers() {
+    const op = $('selOperadora').value, prod = $('selProduto').value, dur = parseInt($('selPrazo').value) || 36;
+    if (!op || !prod) return null;
+    const rows = window.LPU_DB.filter(i => i.o === op && i.p === prod && i.d === dur);
+    const speeds = [...new Set(rows.map(i => i.s))].sort((a, b) => a - b);
+    const chosen = parseInt($('selVelocidade').value) || 0;
+    const ref = speeds.includes(chosen) ? chosen : (speeds.includes(100) ? 100 : speeds[0]);
+    if (!ref) return { ref: 0, by: {} };
+    const price = {};
+    rows.filter(i => i.s === ref).forEach(i => { price[i.u] = i.m.c; });
+    const min = Math.min(...Object.values(price));
+    const by = {};
+    Object.keys(window.UF_GROUPS).forEach(uf => {
+        const v = price[uf];
+        by[uf] = v == null ? { id: 'none', label: 'Sem preço na LPU' } : Object.assign({ v, pct: (v / min - 1) * 100 }, UF_TIERS.find(t => v / min <= t.max));
+    });
+    return { ref, by };
+}
 function renderVisualUF() {
     const c = $('visualUFGrid'); c.innerHTML = '';
-    Object.keys(window.UF_GROUPS).sort().forEach(uf => c.appendChild(chip(uf, { pressed: $('selUF').value === uf, cls: 'chip', data: { uf }, onclick: () => selectVisualUF(uf) })));
+    const T = ufTiers();
+    Object.keys(window.UF_GROUPS).sort().forEach(uf => {
+        const b = chip(uf, { pressed: $('selUF').value === uf, cls: 'chip', data: { uf }, onclick: () => selectVisualUF(uf) });
+        const t = T && T.by[uf];
+        if (t) {
+            b.dataset.tier = t.id;
+            const tip = t.id === 'none' ? `${uf}: ${t.label}` : `${uf}: ${t.label} (${t.pct < 0.5 ? 'mais barata' : '+' + Math.round(t.pct) + '%'}), mensal ${money(t.v)} s/ imp. em ${Quote.speedLabel(T.ref)}`;
+            b.title = tip; b.setAttribute('aria-label', tip);
+        }
+        c.appendChild(b);
+    });
+    const lg = $('ufLegend');
+    lg.innerHTML = T && T.ref ? UF_TIERS.map(t => `<span class="lg" data-tier="${t.id}" title="${esc(t.hint)}"><i></i>${t.label}</span>`).join('') + `<span class="lg" data-tier="none"><i></i>Sem preço</span><small>Comparado em ${Quote.speedLabel(T.ref)}, valor sem impostos</small>`
+        : '<small>Escolha operadora e produto para colorir os estados pelo preço.</small>';
 }
 function selectVisualUF(uf) {
     $('selUF').value = uf; clearErr('uf');
-    document.querySelectorAll('#visualUFGrid .chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.uf === uf)));
     updateSpeeds(); calculate();
 }
 
@@ -143,6 +181,7 @@ function renderPrazoButtons() {
 }
 
 function updateSpeeds() {
+    renderVisualUF();
     const op = $('selOperadora').value, prod = $('selProduto').value, uf = $('selUF').value, dur = parseInt($('selPrazo').value) || 36;
     const c = $('visualSpeedGrid'), hidden = $('selVelocidade'); c.innerHTML = '';
     const has = !!(op && prod && uf);

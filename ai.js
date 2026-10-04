@@ -4,9 +4,11 @@ window.AI = (function () {
     async function run(task, dados) {
         let resp;
         try {
+            const headers = { 'Content-Type': 'application/json' };
+            try { const t = window.SitelbraAuth && await window.SitelbraAuth.token(); if (t) headers.Authorization = 'Bearer ' + t; } catch (e) { /* sem login */ }
             resp = await fetch('/api/ai', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ task, dados })
             });
         } catch (e) {
@@ -21,5 +23,5 @@ window.AI = (function () {
         }
         return json.text;
     }
-    return { melhorar: d => run('melhorar', d), analisar: d => run('analisar', d) };
+    return { melhorar: d => run('melhorar', d), analisar: d => run('analisar', d), rede: d => run('rede', d) };
 })();

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sitelbra Wholesale | Cotação</title>
+    <link rel="icon" href="logo.jpg" type="image/jpeg">
     <meta name="color-scheme" content="light">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,18 +15,24 @@
 <div class="app">
     <header class="topbar">
         <a class="brand" href="https://sitelbra.com.br/" target="_blank" rel="noopener" aria-label="Sitelbra">
-            <img id="brandLogo" class="logo-img" src="https://sitelbra.com.br/wp-content/uploads/2021/12/LOGO-SITELBRA.jpg" alt="Sitelbra">
+            <img id="brandLogo" class="logo-img" src="logo.jpg" alt="Sitelbra">
             <span class="logo-fallback" id="brandFallback" hidden>SITELBRA</span>
             <span class="brand-sep"></span><span class="brand-tag">Cotação Wholesale</span>
         </a>
+        <nav class="vtabs" role="tablist" aria-label="Área do sistema">
+            <button type="button" role="tab" class="vtab on" data-view="cotacao" aria-selected="true">Cotação</button>
+            <button type="button" role="tab" class="vtab" data-view="rede" aria-selected="false">Rede própria</button>
+        </nav>
         <nav class="top-actions" aria-label="Ações">
             <span class="date" id="currentDate">--/--/----</span>
-            <button type="button" class="btn ghost" id="btnOpenCompare" aria-label="Comparar operadoras"><span data-ic="compare"></span><span class="lbl">Comparar operadoras</span></button>
-            <button type="button" class="btn ghost" id="btnOpenHistory" aria-label="Histórico de cotações"><span data-ic="history"></span><span class="lbl">Histórico</span><span class="count" id="histCount" hidden>0</span></button>
+            <span class="user-chip" id="userChip" hidden><span data-ic="user"></span><span class="u-mail"></span><button type="button" class="btn link" id="btnLogout">Sair</button></span>
+            <button type="button" class="btn ghost" id="btnLoginTop" hidden><span data-ic="user"></span><span class="lbl">Entrar</span></button>
+            <button type="button" class="btn ghost only-cot" id="btnOpenCompare" aria-label="Comparar operadoras"><span data-ic="compare"></span><span class="lbl">Comparar operadoras</span></button>
+            <button type="button" class="btn ghost only-cot" id="btnOpenHistory" aria-label="Histórico de cotações"><span data-ic="history"></span><span class="lbl">Histórico</span><span class="count" id="histCount" hidden>0</span></button>
         </nav>
     </header>
 
-    <div class="workspace">
+    <div class="workspace" id="viewCotacao">
         <!-- ================= MENU LATERAL: CONFIGURAÇÕES E ANÁLISE AVANÇADA ================= -->
         <aside class="sidebar" aria-label="Configurações">
             <input type="hidden" id="selOperadora"><input type="hidden" id="selProduto">
@@ -73,7 +80,7 @@
                 <section class="col" aria-label="Rede e local">
                     <div class="step-header"><span class="step-num">1</span><span>Rede &amp; Local</span></div>
                     <div class="card field" data-field="op"><span class="card-label">Operadora</span><div id="visualOpGrid" class="chips"></div><div class="ferr" role="alert"></div></div>
-                    <div class="card field grow" data-field="uf"><span class="card-label">Estado (UF)</span><div id="visualUFGrid" class="uf-grid"></div><div class="ferr" role="alert"></div></div>
+                    <div class="card field grow" data-field="uf"><span class="card-label">Estado (UF)</span><div id="visualUFGrid" class="uf-grid"></div><div class="uf-legend" id="ufLegend" aria-label="Legenda das cores dos estados"></div><div class="ferr" role="alert"></div></div>
                 </section>
 
                 <!-- 2 -->
@@ -178,6 +185,50 @@
             </div>
         </main>
     </div>
+
+    <!-- ================= REDE PRÓPRIA ================= -->
+    <div class="workspace" id="viewRede" hidden>
+        <aside class="sidebar" aria-label="Busca de rede própria">
+            <div class="section-title">Local do cliente</div>
+            <div class="form-group"><label for="rEndereco">Endereço</label><input id="rEndereco" class="input" type="text" placeholder="Rua, número, bairro, cidade" autocomplete="off"></div>
+            <div class="form-group"><label for="rCoord">Coordenadas <span class="hint">(opcional, tem prioridade)</span></label><input id="rCoord" class="input" type="text" placeholder="-15.7801, -47.9292" inputmode="decimal" autocomplete="off"></div>
+            <div class="section-title">Pedido</div>
+            <div class="form-group"><label for="rVel">Velocidade desejada</label><select id="rVel" class="input"></select></div>
+            <div class="form-group"><label for="rRaio">Raio de busca</label><select id="rRaio" class="input"></select></div>
+            <div class="section-title">Comparar com terceiros</div>
+            <div class="form-group"><label for="rProd">Produto da LPU</label><select id="rProd" class="input"></select></div>
+            <div class="form-group"><label for="rPrazo">Prazo</label><select id="rPrazo" class="input"></select></div>
+            <div class="form-group"><label for="rUF">UF da LPU</label><select id="rUF" class="input"></select></div>
+            <div class="form-group"><label for="rCusto">Custo de extensão (R$ por metro) <span class="hint">opcional</span></label><input id="rCusto" class="input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ex.: 18,50"></div>
+            <button type="button" class="btn primary xl" id="rBuscar" disabled><span class="spin" aria-hidden="true"></span><span data-ic="pin" class="ic-lead"></span><span class="lbl">BUSCAR REDE PRÓXIMA</span></button>
+
+            <details class="adv" id="rBase">
+                <summary><span><strong>Base de ativos</strong><small>Importar a planilha do Metabase</small></span><span class="chev" data-ic="chev"></span></summary>
+                <div class="adv-body">
+                    <p class="note" id="baseStatus">Entre para ver a base.</p>
+                    <div class="form-group"><label for="impFile">Planilha (.xlsx ou .csv)</label><input id="impFile" class="input" type="file" accept=".xlsx,.xls,.csv"></div>
+                    <div class="form-group" hidden><label for="impSheet">Aba</label><select id="impSheet" class="input"></select></div>
+                    <div id="impMap" hidden>
+                        <div class="section-title">Colunas da planilha</div>
+                        <div id="impFields" class="map-grid"></div>
+                        <ul id="impPreview" class="imp-prev"></ul>
+                        <label class="opt"><input type="checkbox" id="impStale" checked><span class="opt-main"><span class="opt-name">Remover ativos que saíram da planilha</span></span></label>
+                    </div>
+                    <p class="note" id="impMsg"></p>
+                    <progress id="impProg" max="100" value="0" hidden></progress><p class="note" id="impProgTxt"></p>
+                    <button type="button" class="btn dark" id="btnImport" disabled><span class="spin" aria-hidden="true"></span><span data-ic="upload"></span><span class="lbl">Enviar para o Firebase</span></button>
+                </div>
+            </details>
+        </aside>
+        <main class="main scroll">
+            <div class="main-head"><h1>Rede própria</h1><span class="hint">Veja se já existe link seu perto do cliente antes de comprar de terceiros.</span></div>
+            <div id="rGate" class="r-gate" hidden></div>
+            <div id="rBody" hidden>
+                <div id="rResult" class="r-result" hidden></div>
+                <div class="empty r-empty" id="rEmpty"><div class="empty-ic" data-ic="net"></div><h3>Informe o local do cliente</h3><p>Digite o endereço e/ou as coordenadas e clique em Buscar. O sistema mostra o link mais próximo, a distância, a velocidade e quanto custaria com terceiros.</p></div>
+            </div>
+        </main>
+    </div>
 </div>
 
 <!-- Histórico -->
@@ -204,5 +255,8 @@
 <script src="history.js"></script>
 <script src="ai.js"></script>
 <script src="script.js"></script>
+<script src="firebase-config.js"></script>
+<script src="rede-core.js"></script>
+<script src="rede.js"></script>
 </body>
 </html>
