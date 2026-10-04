@@ -80,7 +80,9 @@
             const { F, db } = S.fb, snap = await F.getDoc(F.doc(db, 'meta', 'ativos'));
             if (!snap.exists()) { box.innerHTML = '<b>Base vazia.</b> Importe a planilha do Metabase abaixo.'; return; }
             const m = snap.data(), dt = m.atualizadoEm && m.atualizadoEm.toDate ? m.atualizadoEm.toDate().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
-            box.innerHTML = `<b>${(m.total || 0).toLocaleString('pt-BR')} ativos</b> na base${dt ? `, atualizada em ${esc(dt)}` : ''}${m.arquivo ? ` (${esc(m.arquivo)})` : ''}.`;
+            const pend = m.pendentes || 0;
+            box.innerHTML = `<b>${(m.total || 0).toLocaleString('pt-BR')} ativos</b> na base${dt ? `, atualizada em ${esc(dt)}` : ''}${m.arquivo ? ` (${esc(m.arquivo)})` : ''}.${pend ? ` <b>${pend.toLocaleString('pt-BR')}</b> ainda sem localização no mapa.` : ''}`;
+            if (!S.busy) $('btnResume').hidden = !pend;
         } catch (e) { box.textContent = friendlyDbErr(e); }
     }
 
@@ -94,13 +96,13 @@
     }
     async function onFile(file) {
         if (!file) return;
-        $('impMsg').textContent = 'Lendo a planilha…'; $('impMap').hidden = true; $('btnImport').disabled = true;
+        $('impMsg').textContent = 'Lendo a planilha…'; $('impMap').hidden = true; $('btnImport').disabled = true; S.auto = true;
         try {
             await loadSheetJS();
             const wb = /\.csv$/i.test(file.name) ? XLSX.read(await file.text(), { type: 'string' }) : XLSX.read(await file.arrayBuffer(), { type: 'array' });
             S.sheet = { name: file.name, wb };
             const sel = $('impSheet'); sel.innerHTML = wb.SheetNames.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
-            sel.parentElement.hidden = wb.SheetNames.length < 2;
+            sel.parentElement.hidden = wb.SheetNames.length < 2; S.wbOne = wb.SheetNames.length < 2;
             readSheet(0);
         } catch (e) { $('impMsg').textContent = e.message || 'Não foi possível ler este arquivo.'; }
     }
@@ -111,6 +113,8 @@
         S.headers = all[0].map(h => String(h).trim()); S.rows = all.slice(1);
         S.map = RC.detectColumns(S.headers);
         renderMapping(); evaluate();
+        // Planilha de uma aba só, já entendida e com usuário logado: envia direto, sem etapa de conferência.
+        if (S.auto && S.wbOne && S.assets.length && S.user && !S.busy) { S.auto = false; doImport(); } else S.auto = false;
     }
     function renderMapping() {
         const opts = '<option value="-1">— não tem —</option>' + S.headers.map((h, i) => `<option value="${i}">${esc(h || '(coluna ' + (i + 1) + ')')}</option>`).join('');
@@ -125,7 +129,7 @@
         const n = S.assets.length, pend = S.assets.filter(a => a._pend).length, unicos = new Set(S.assets.filter(a => a._pend).map(a => RC.buildQuery(a))).size;
         const min = Math.ceil(unicos * 1.1 / 60);
         const warn = n > 15000 ? ' O plano gratuito do Firebase aceita ~20 mil gravações por dia: considere importar em dias diferentes.' : '';
-        $('impMsg').innerHTML = n ? `<b>${n.toLocaleString('pt-BR')}</b> ativos prontos${pend ? `, sendo <b>${pend.toLocaleString('pt-BR')}</b> só com endereço: serão localizados na importação (${unicos.toLocaleString('pt-BR')} endereços diferentes, cerca de <b>${min} min</b>; deixe esta aba aberta)` : ''}${semCoord ? `. <b>${semCoord.toLocaleString('pt-BR')}</b> linhas ignoradas (sem coordenada e sem endereço)` : ''}.${warn}`
+        $('impMsg').innerHTML = n ? `<b>${n.toLocaleString('pt-BR')}</b> ativos prontos${pend ? `, sendo <b>${pend.toLocaleString('pt-BR')}</b> só com endereço: serão enviados agora e localizados no mapa em seguida (${unicos.toLocaleString('pt-BR')} endereços diferentes, cerca de <b>${min} min</b>; pode parar e continuar depois)` : ''}${semCoord ? `. <b>${semCoord.toLocaleString('pt-BR')}</b> linhas ignoradas (sem coordenada e sem endereço)` : ''}.${warn}`
             : `Nenhuma linha utilizável. Aponte a coluna de <b>Endereço</b> (ou Latitude/Longitude) abaixo.`;
         $('impPreview').innerHTML = S.assets.slice(0, 3).map(a => `<li>${esc(a.id || a._docId)} | ${a.mbps ? Quote.speedLabel(a.mbps) : 'sem velocidade'} | ${a._pend ? esc(RC.buildQuery(a)) : a.lat + ', ' + a.lon}</li>`).join('');
         $('btnImport').disabled = !n || !S.user;
@@ -163,16 +167,31 @@
         }
         memo.set(q, res); return res;
     }
+    // Localiza os ativos pendentes e grava as coordenadas no Firestore aos poucos (de 40 em 40), então parar no meio não perde nada.
     async function geocodeAll(pend, prog) {
-        const memo = new Map(), t0 = Date.now(); let feitos = 0, achados = 0; S.naoLoc = [];
-        for (const a of pend) {
-            if (S.stop) throw new Error('Interrompido. O que já foi localizado ficou guardado: ao enviar de novo, continua de onde parou.');
-            const q1 = RC.buildQuery(a), q2 = RC.buildQuery({ ...a, endereco: RC.stripNumber(a.endereco) });
-            let r = await geoQuery(q1, a.uf, memo), prec = r && r.prec;
-            if (!r && q2 !== q1) { r = await geoQuery(q2, a.uf, memo); prec = r ? 'rua' : null; }
-            if (r) { a.lat = r.lat; a.lon = r.lon; a.geoPrec = prec === 'endereco' ? 'endereco' : 'rua'; a._pend = false; achados++; } else S.naoLoc.push(a);
-            feitos++; if (feitos % 5 === 0 || feitos === pend.length) prog(feitos, pend.length, achados, (Date.now() - t0) / feitos);
-        }
+        const { F, db } = S.fb, memo = new Map(), t0 = Date.now(); let feitos = 0, achados = 0, fila = [];
+        S.naoLoc = []; S.geoFeitos = 0;
+        const flush = async () => {
+            if (!fila.length) return; const lote = fila; fila = [];
+            const b = F.writeBatch(db);
+            lote.forEach(({ a, ok }) => b.update(F.doc(F.collection(db, 'ativos'), a._docId), ok
+                ? { lat: a.lat, lon: a.lon, geoPrec: a.geoPrec, g3: RC.geohash(a.lat, a.lon, 3), g4: RC.geohash(a.lat, a.lon, 4), g5: RC.geohash(a.lat, a.lon, 5), geoPendente: false }
+                : { geoPendente: false, geoFalhou: true }));
+            await b.commit();
+        };
+        try {
+            for (const a of pend) {
+                if (S.stop) throw new Error('Interrompido. O que já foi localizado ficou salvo: use "Continuar localização" para seguir de onde parou.');
+                const q1 = RC.buildQuery(a), q2 = RC.buildQuery({ ...a, endereco: RC.stripNumber(a.endereco) });
+                let r = await geoQuery(q1, a.uf, memo), prec = r && r.prec;
+                if (!r && q2 !== q1) { r = await geoQuery(q2, a.uf, memo); prec = r ? 'rua' : null; }
+                if (r) { a.lat = r.lat; a.lon = r.lon; a.geoPrec = prec === 'endereco' ? 'endereco' : 'rua'; achados++; fila.push({ a, ok: true }); }
+                else { S.naoLoc.push(a); fila.push({ a, ok: false }); }
+                feitos++; S.geoFeitos = feitos;
+                if (fila.length >= 40) await flush();
+                if (feitos % 5 === 0 || feitos === pend.length) prog(feitos, pend.length, achados, (Date.now() - t0) / feitos);
+            }
+        } finally { try { await flush(); } catch (e) { /* já mostramos o erro principal */ } }
     }
     function baixarNaoLocalizados() {
         const linhas = [['Designacao', 'Endereco', 'Cidade', 'UF', 'Consulta usada']].concat(S.naoLoc.map(a => [a.id, a.endereco, a.cidade, a.uf, RC.buildQuery(a)]));
@@ -180,28 +199,37 @@
         const u = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
         a.href = u; a.download = 'ativos_nao_localizados.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(u), 2000);
     }
+    const fmtN = n => n.toLocaleString('pt-BR');
+    function progLoc(prog) { return (f, t, ach, seg) => { prog.value = Math.round(f / t * 100); $('impProgTxt').textContent = `Localizando endereços: ${fmtN(f)} de ${fmtN(t)} (${fmtN(ach)} localizados, faltam ~${Math.ceil((t - f) * seg / 60000)} min)`; }; }
+    async function runGeo(pend, importMeta) {
+        const { F, db } = S.fb, prog = $('impProg'); $('btnImpStop').hidden = false; prog.value = 0;
+        try { await geocodeAll(pend, progLoc(prog)); }
+        finally {
+            $('btnImpStop').hidden = true;
+            const restam = pend.length - (S.geoFeitos || 0);
+            try { await F.setDoc(F.doc(db, 'meta', 'ativos'), { pendentes: restam, naoLocalizados: (S.naoLoc || []).length, atualizadoEm: F.serverTimestamp() }, { merge: true }); } catch (e) { /* meta é só informativo */ }
+        }
+        const nl = S.naoLoc.length, ok = pend.length - nl;
+        $('impProgTxt').textContent = `Concluído: ${fmtN(ok)} endereços localizados${nl ? `; ${fmtN(nl)} não foram achados (ficam na base, mas fora da busca por distância)` : ''}.`;
+        toast(`${fmtN(ok)} endereços localizados.`); $('btnNaoLoc').hidden = !nl; loadMeta();
+    }
+
+    // Importação em 2 etapas: (1) envia TUDO de uma vez (rápido); (2) localiza os endereços que ainda não têm coordenada.
     async function doImport() {
         if (!S.assets.length || S.busy) return;
-        const pend0 = S.assets.filter(a => a._pend).length;
-        if (!confirm(`Enviar ${S.assets.length.toLocaleString('pt-BR')} ativos para o Firebase${pend0 ? ` (${pend0.toLocaleString('pt-BR')} serão localizados pelo endereço primeiro)` : ''}${$('impStale').checked ? ' e remover os que não estão mais na planilha' : ''}?`)) return;
-        S.busy = true; S.stop = false; const btn = $('btnImport'); busy(btn, true); $('btnNaoLoc').hidden = true;
+        S.busy = true; S.stop = false; const btn = $('btnImport'); busy(btn, true); $('btnNaoLoc').hidden = true; $('btnResume').hidden = true;
         const { F, db } = S.fb, importId = Date.now().toString(36), prog = $('impProg'); prog.hidden = false; prog.value = 0;
+        let pend = [];
         try {
-            const pend = S.assets.filter(a => a._pend);
-            if (pend.length) {
-                $('btnImpStop').hidden = false;
-                await geocodeAll(pend, (f, t, ach, seg) => { prog.value = Math.round(f / t * 100); const falta = Math.ceil((t - f) * seg / 60000); $('impProgTxt').textContent = `Localizando endereços: ${f.toLocaleString('pt-BR')} de ${t.toLocaleString('pt-BR')} (${ach.toLocaleString('pt-BR')} localizados, faltam ~${falta} min)`; });
-                $('btnImpStop').hidden = true;
-            }
-            const lista = S.assets.filter(a => !a._pend), col = F.collection(db, 'ativos'), tot = lista.length;
-            if (!tot) throw new Error('Nenhum endereço foi localizado. Confira a coluna de endereço/cidade/UF.');
+            const col = F.collection(db, 'ativos'), tot = S.assets.length;
             for (let i = 0; i < tot; i += 400) {
                 const batch = F.writeBatch(db);
-                lista.slice(i, i + 400).forEach(a => {
+                S.assets.slice(i, i + 400).forEach(a => {
                     const { _docId, _pend, ...d } = a;
-                    batch.set(F.doc(col, _docId), { ...d, g3: RC.geohash(a.lat, a.lon, 3), g4: RC.geohash(a.lat, a.lon, 4), g5: RC.geohash(a.lat, a.lon, 5), importId, atualizadoEm: F.serverTimestamp() });
+                    const geo = _pend ? { geoPendente: true } : { g3: RC.geohash(a.lat, a.lon, 3), g4: RC.geohash(a.lat, a.lon, 4), g5: RC.geohash(a.lat, a.lon, 5) };
+                    batch.set(F.doc(col, _docId), { ...d, ...geo, importId, atualizadoEm: F.serverTimestamp() });
                 });
-                await batch.commit(); prog.value = Math.min(100, Math.round(((i + 400) / tot) * 100)); $('impProgTxt').textContent = `Enviando ${Math.min(i + 400, tot).toLocaleString('pt-BR')} de ${tot.toLocaleString('pt-BR')}`;
+                await batch.commit(); prog.value = Math.min(100, Math.round(((i + 400) / tot) * 100)); $('impProgTxt').textContent = `Enviando ${fmtN(Math.min(i + 400, tot))} de ${fmtN(tot)}`;
             }
             let removidos = 0;
             if ($('impStale').checked) {
@@ -210,13 +238,28 @@
                 for (let i = 0; i < old.docs.length; i += 400) { const b = F.writeBatch(db); old.docs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit(); }
                 removidos = old.docs.length;
             }
-            const nl = (S.naoLoc || []).length;
-            await F.setDoc(F.doc(db, 'meta', 'ativos'), { importId, total: tot, arquivo: S.sheet.name, semCoordenada: S.semCoord, naoLocalizados: nl, removidos, atualizadoEm: F.serverTimestamp(), por: S.user.email });
-            toast(`Base atualizada: ${tot.toLocaleString('pt-BR')} ativos${nl ? `, ${nl.toLocaleString('pt-BR')} sem localização` : ''}.`);
-            $('impProgTxt').textContent = `Concluído: ${tot.toLocaleString('pt-BR')} ativos enviados${nl ? `. ${nl.toLocaleString('pt-BR')} endereços não foram localizados e ficaram de fora.` : '.'}`;
-            $('btnNaoLoc').hidden = !nl; loadMeta();
-        } catch (e) { toast(friendlyDbErr(e), 'err'); $('impProgTxt').textContent = friendlyDbErr(e); $('btnNaoLoc').hidden = !(S.naoLoc && S.naoLoc.length); }
-        finally { S.busy = false; $('btnImpStop').hidden = true; busy(btn, false); }
+            pend = S.assets.filter(a => a._pend);
+            await F.setDoc(F.doc(db, 'meta', 'ativos'), { importId, total: tot, pendentes: pend.length, arquivo: S.sheet.name, semCoordenada: S.semCoord, removidos, atualizadoEm: F.serverTimestamp(), por: S.user.email });
+            toast(`${fmtN(tot)} ativos enviados.`); loadMeta();
+        } catch (e) { S.busy = false; busy(btn, false); toast(friendlyDbErr(e), 'err'); $('impProgTxt').textContent = friendlyDbErr(e); return; }
+        try {
+            if (pend.length) await runGeo(pend);
+            else $('impProgTxt').textContent = `Pronto: ${fmtN(S.assets.length)} ativos na base.`;
+        } catch (e) { toast(friendlyDbErr(e), 'err'); $('impProgTxt').textContent = friendlyDbErr(e); $('btnNaoLoc').hidden = !(S.naoLoc && S.naoLoc.length); loadMeta(); }
+        finally { S.busy = false; busy(btn, false); }
+    }
+    // Retoma a localização dos endereços que ficaram pendentes (importação interrompida ou não concluída).
+    async function resumeGeo() {
+        if (S.busy || !S.user) return; S.busy = true; S.stop = false; $('btnResume').hidden = true; $('btnNaoLoc').hidden = true; $('impProg').hidden = false;
+        try {
+            const { F, db } = S.fb;
+            $('impProgTxt').textContent = 'Buscando endereços pendentes…';
+            const snap = await F.getDocs(F.query(F.collection(db, 'ativos'), F.where('geoPendente', '==', true), F.limit(5000)));
+            const pend = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+            if (!pend.length) { $('impProgTxt').textContent = 'Nenhum endereço pendente.'; loadMeta(); return; }
+            await runGeo(pend);
+        } catch (e) { toast(friendlyDbErr(e), 'err'); $('impProgTxt').textContent = friendlyDbErr(e); loadMeta(); }
+        finally { S.busy = false; }
     }
 
     // ---------- BUSCA ----------
@@ -365,5 +408,6 @@
         $('btnImport').addEventListener('click', doImport);
         $('btnImpStop').addEventListener('click', () => { S.stop = true; $('btnImpStop').hidden = true; });
         $('btnNaoLoc').addEventListener('click', baixarNaoLocalizados);
+        $('btnResume').addEventListener('click', resumeGeo);
     });
 })();

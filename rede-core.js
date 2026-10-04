@@ -36,6 +36,9 @@
     function parseCoordPair(text) {
         if (text == null) return null;
         const s = String(text);
+        // "Lat: -16,48 Long: -39,08", "LAT. -15.79, LON.-48.03", "latitude -15.7 longitude -47.9"
+        const lab = /lat(?:itude)?[^\d-]{0,6}(-?\d{1,3}(?:[.,]\d+)?)[^\d-]{1,25}?lon(?:g|gitude)?[^\d-]{0,6}(-?\d{1,3}(?:[.,]\d+)?)/i.exec(s);
+        if (lab) { const a = parseNum(lab[1]), b = parseNum(lab[2]); if (a != null && b != null && inBrasil(a, b)) return { lat: a, lon: b }; }
         const re = /(-?\d{1,3}[.,]\d{2,})\s*[;,/ ]\s*(-?\d{1,3}[.,]\d{2,})/g;
         let m;
         while ((m = re.exec(s))) {

@@ -597,3 +597,6 @@ body { line-height: 1.55; }
 @media (max-width: 720px) { .user-chip .u-mail { display: none; } .user-chip { padding-left: 6px; } }
 .chip[aria-pressed="true"]:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: #fff; }
 #rBase > summary { display: flex; } #rBase .adv-body { padding-top: 14px; }
+
+.map-det { margin: 8px 0 12px; } .map-det > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 13px; padding: 6px 0; } .map-det[open] > summary { margin-bottom: 8px; }
+#viewRede .adv-body .btn { margin: 4px 6px 4px 0; }

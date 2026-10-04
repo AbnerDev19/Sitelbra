@@ -206,18 +206,21 @@
                 <summary><span><strong>Base de ativos</strong><small>Importar a planilha do Metabase</small></span><span class="chev" data-ic="chev"></span></summary>
                 <div class="adv-body">
                     <p class="note" id="baseStatus">Entre para ver a base.</p>
+                    <p class="note">É só escolher o arquivo: ele é lido e enviado sozinho.</p>
                     <div class="form-group"><label for="impFile">Planilha (.xlsx ou .csv)</label><input id="impFile" class="input" type="file" accept=".xlsx,.xls,.csv"></div>
                     <div class="form-group" hidden><label for="impSheet">Aba</label><select id="impSheet" class="input"></select></div>
-                    <div id="impMap" hidden>
+                    <details id="impMap" class="map-det" hidden>
+                        <summary>Ajustar colunas (opcional)</summary>
                         <div class="section-title">Colunas da planilha</div>
                         <div id="impFields" class="map-grid"></div>
                         <ul id="impPreview" class="imp-prev"></ul>
                         <label class="opt"><input type="checkbox" id="impStale" checked><span class="opt-main"><span class="opt-name">Remover ativos que saíram da planilha</span></span></label>
-                    </div>
+                    </details>
                     <p class="note" id="impMsg"></p>
                     <progress id="impProg" max="100" value="0" hidden></progress><p class="note" id="impProgTxt"></p>
                     <button type="button" class="btn dark" id="btnImport" disabled><span class="spin" aria-hidden="true"></span><span data-ic="upload"></span><span class="lbl">Enviar para o Firebase</span></button>
                     <button type="button" class="btn ghost" id="btnImpStop" hidden>Parar</button>
+                    <button type="button" class="btn secondary" id="btnResume" hidden>Continuar localização dos endereços</button>
                     <button type="button" class="btn link" id="btnNaoLoc" hidden>Baixar lista dos não localizados</button>
                 </div>
             </details>

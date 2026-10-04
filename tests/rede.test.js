@@ -31,6 +31,10 @@ let c = R.parseCoordPair('Q 5 Lote 2, Brasília (-15.7801, -47.9292)');
 ok('par no texto (ponto)', c && c.lat === -15.7801 && c.lon === -47.9292);
 c = R.parseCoordPair('-15,7801; -47,9292');
 ok('par com vírgula decimal e ;', c && c.lat === -15.7801 && c.lon === -47.9292);
+c = R.parseCoordPair("Estrada de Trancoso, Arraial d'Ajuda, Porto Seguro Lat: -16,4816666666667 Long: -39,0891666666667");
+ok('Lat:/Long: com texto no meio', c && Math.abs(c.lat + 16.48166) < 1e-4 && Math.abs(c.lon + 39.08916) < 1e-4);
+c = R.parseCoordPair('DF-095, Km 10,438, com as Coordenadas Geográficas: LAT. -15.790680, LON.-48.033500');
+ok('LAT. / LON. colados', c && c.lat === -15.79068 && c.lon === -48.0335);
 ok('ignora número fora do Brasil', R.parseCoordPair('48.8566, 2.3522') === null);
 ok('ignora CEP/telefone', R.parseCoordPair('CEP 70.040-010, tel 3322-1100') === null);
 
