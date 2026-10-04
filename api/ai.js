@@ -1,6 +1,6 @@
 // api/ai.js - Proxy seguro para o Gemini.
 // A chave fica SOMENTE no servidor (variável de ambiente GEMINI_API_KEY) e nunca chega ao navegador.
-// Funciona como função serverless (Vercel: /api/ai) e dentro do server.js (Node puro).
+// Funciona como função serverless (Vercel: /api/ai) e dentro do dev-server.js (Node puro).
 //
 // O navegador não manda prompt livre: manda { task, dados } e o prompt é montado aqui,
 // então o endpoint não serve como "proxy aberto" para usar a chave com outros fins.

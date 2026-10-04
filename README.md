@@ -19,7 +19,7 @@ Sem `GEMINI_API_KEY` tudo funciona, exceto "Melhorar com IA" e "Análise comerci
 | `quote.js` | Status, composição do preço, fatores aplicados, resumo, texto comercial, comparação. Não calcula preço: chama `pricing.js` e confere que a composição fecha com o total. |
 | `history.js` | Histórico em `localStorage` (chave `sitelbra.historico.v1`). |
 | `ai.js` + `api/ai.js` | Cliente da IA e proxy no servidor. A chave só existe no servidor. |
-| `server.js` | Servidor local sem dependências (serve o site e `/api/ai`). |
+| `dev-server.js` | Servidor SÓ para uso local (a Vercel não usa; por isso não se chama server.js) sem dependências (serve o site e `/api/ai`). |
 | `rede-core.js` | Aba Rede própria: geohash, distância, leitura de coordenadas/velocidade e colunas da planilha (puro, testável). |
 | `rede.js` | Aba Rede própria: login, Firestore, importação da planilha, busca e comparação com a LPU. |
 | `firebase-config.js`, `firestore.rules` | Config do Firebase e regras de segurança. |
