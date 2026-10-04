@@ -15,6 +15,7 @@ service cloud.firestore {
     }
 
     match /ativos/{id} { allow read: if logado(); allow write: if admin(); }
+    match /geocache/{id} { allow read: if logado(); allow write: if admin(); }
     match /meta/{id}   { allow read: if logado(); allow write: if admin(); }
 
     match /{outro=**} { allow read, write: if false; }

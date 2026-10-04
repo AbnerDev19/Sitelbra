@@ -57,8 +57,15 @@ const r1 = R.rowToAsset(['SIT-001', 'ACME', 'Rua A, 10', 'Brasília', 'df', '-15
 ok('linha válida', r1.ok && r1.ativo.uf === 'DF' && r1.ativo.mbps === 100 && r1.ativo.lat === -15.78 && r1.ativo.extra['Observação'] === 'teste');
 const r2 = R.rowToAsset(['SIT-002', '', 'Rua B', 'Goiânia', 'GO', '-47.93', '-15.78', '', '', '', ''], h, m);
 ok('lat/long trocadas são corrigidas', r2.ok && r2.ativo.lat === -15.78 && r2.ativo.lon === -47.93);
-const r3 = R.rowToAsset(['SIT-003', '', 'Rua C', '', '', '', '', '', '', '', ''], h, m);
-ok('sem coordenada é descartada', !r3.ok && r3.motivo === 'sem_coordenada');
+const r3 = R.rowToAsset(['SIT-003', '', 'Rua C, 10', 'Goiânia', 'GO', '', '', '', '', '', ''], h, m);
+ok('só endereço vira pendente de geocodificação', r3.ok && r3.pendente && r3.ativo.lat === null && R.buildQuery(r3.ativo) === 'Rua C, 10, Goiânia, GO, Brasil');
+const r3b = R.rowToAsset(['SIT-004', '', '', '', '', '', '', '', '', '', ''], h, m);
+ok('sem coordenada e sem endereço é descartada', !r3b.ok && r3b.motivo === 'sem_coordenada');
+ok('query não repete cidade/UF já no endereço', R.buildQuery({ endereco: 'Rua A, 5, Brasília - DF', cidade: 'Brasília', uf: 'DF' }) === 'Rua A, 5, Brasília - DF, Brasil');
+ok('stripNumber tira o número da porta', R.stripNumber('Rua A, 123, Brasília, DF, Brasil') === 'Rua A, Brasília, DF, Brasil');
+ok('stripNumber preserva "BR 060"', R.stripNumber('Rodovia BR 060, Goiânia').includes('BR 060'));
+const semId = { ...r3.ativo, id: '' };
+ok('docId de pendente sem id é estável', R.docId(semId, new Set()) === R.docId(semId, new Set()) && R.docId(semId, new Set()).startsWith('end_'));
 const m2 = R.detectColumns(['ID', 'Endereço Ponto A', 'Banda']);
 const r4 = R.rowToAsset(['X1', 'Rua D 5 (-15.80, -47.90)', '200M'], ['ID', 'Endereço Ponto A', 'Banda'], m2);
 ok('coordenada embutida no endereço', r4.ok && r4.ativo.lat === -15.8 && r4.ativo.mbps === 200);

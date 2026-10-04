@@ -120,25 +120,85 @@
     }
     function evaluate() {
         S.assets = []; let semCoord = 0; const vistos = new Set();
-        S.rows.forEach(r => { const x = RC.rowToAsset(r, S.headers, S.map); if (x.ok) { x.ativo._docId = RC.docId(x.ativo, vistos); S.assets.push(x.ativo); } else semCoord++; });
+        S.rows.forEach(r => { const x = RC.rowToAsset(r, S.headers, S.map); if (x.ok) { x.ativo._docId = RC.docId(x.ativo, vistos); x.ativo._pend = !!x.pendente; S.assets.push(x.ativo); } else semCoord++; });
         S.semCoord = semCoord;
-        const n = S.assets.length, warn = n > 15000 ? ' O plano gratuito do Firebase aceita ~20 mil gravações por dia: considere importar em dias diferentes.' : '';
-        $('impMsg').innerHTML = n ? `<b>${n.toLocaleString('pt-BR')}</b> ativos prontos${semCoord ? `, <b>${semCoord.toLocaleString('pt-BR')}</b> linhas ignoradas por não terem coordenada` : ''}.${warn}`
-            : `Nenhuma linha com coordenada. Aponte as colunas de <b>Latitude/Longitude</b> (ou Coordenadas) abaixo.`;
-        $('impPreview').innerHTML = S.assets.slice(0, 3).map(a => `<li>${esc(a.id || a._docId)} | ${a.mbps ? Quote.speedLabel(a.mbps) : 'sem velocidade'} | ${a.lat}, ${a.lon}${a.cidade ? ' | ' + esc(a.cidade) : ''}</li>`).join('');
+        const n = S.assets.length, pend = S.assets.filter(a => a._pend).length, unicos = new Set(S.assets.filter(a => a._pend).map(a => RC.buildQuery(a))).size;
+        const min = Math.ceil(unicos * 1.1 / 60);
+        const warn = n > 15000 ? ' O plano gratuito do Firebase aceita ~20 mil gravações por dia: considere importar em dias diferentes.' : '';
+        $('impMsg').innerHTML = n ? `<b>${n.toLocaleString('pt-BR')}</b> ativos prontos${pend ? `, sendo <b>${pend.toLocaleString('pt-BR')}</b> só com endereço: serão localizados na importação (${unicos.toLocaleString('pt-BR')} endereços diferentes, cerca de <b>${min} min</b>; deixe esta aba aberta)` : ''}${semCoord ? `. <b>${semCoord.toLocaleString('pt-BR')}</b> linhas ignoradas (sem coordenada e sem endereço)` : ''}.${warn}`
+            : `Nenhuma linha utilizável. Aponte a coluna de <b>Endereço</b> (ou Latitude/Longitude) abaixo.`;
+        $('impPreview').innerHTML = S.assets.slice(0, 3).map(a => `<li>${esc(a.id || a._docId)} | ${a.mbps ? Quote.speedLabel(a.mbps) : 'sem velocidade'} | ${a._pend ? esc(RC.buildQuery(a)) : a.lat + ', ' + a.lon}</li>`).join('');
         $('btnImport').disabled = !n || !S.user;
+    }
+
+    // ---------- GEOCODIFICAÇÃO NA IMPORTAÇÃO ----------
+    // OpenStreetMap (Nominatim): gratuito, limite de 1 consulta/segundo. Resultados ficam em "geocache" (Firestore):
+    // reimportar ou retomar uma importação interrompida não repete consultas.
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    let lastNet = 0;
+    const TIPOS_OK = ['building', 'amenity', 'office', 'shop', 'craft', 'tourism', 'man_made', 'highway', 'landuse', 'industrial', 'commercial'];
+    async function nominatim(q, uf) {
+        const wait = 1100 - (Date.now() - lastNet); if (wait > 0) await sleep(wait);
+        lastNet = Date.now();
+        const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=br&accept-language=pt-BR&q=' + encodeURIComponent(q));
+        if (!r.ok) throw new Error('O serviço de endereços recusou a consulta (' + r.status + '). Aguarde alguns minutos e envie de novo: o que já foi localizado fica guardado.');
+        for (const x of await r.json()) {
+            const ad = x.address || {}, xuf = (ad['ISO3166-2-lvl4'] || '').replace('BR-', '');
+            if (!(ad.road || ad.house_number || TIPOS_OK.includes(x.category))) continue;      // descarta resultado só de cidade/bairro
+            if (uf && xuf && uf !== xuf) continue;                                             // descarta outra UF
+            const lat = +x.lat, lon = +x.lon; if (!RC.inBrasil(lat, lon)) continue;
+            return { lat: +lat.toFixed(6), lon: +lon.toFixed(6), prec: ad.house_number ? 'endereco' : 'rua' };
+        }
+        return null;
+    }
+    async function geoQuery(q, uf, memo) {
+        if (memo.has(q)) return memo.get(q);
+        const { F, db } = S.fb, ref = F.doc(db, 'geocache', 'g_' + RC.hashStr(q));
+        let res, snap = null;
+        try { snap = await F.getDoc(ref); } catch (e) { /* sem cache: segue */ }
+        if (snap && snap.exists() && snap.data().q === q) res = snap.data().ok ? { lat: snap.data().lat, lon: snap.data().lon, prec: snap.data().prec } : null;
+        else {
+            res = await nominatim(q, uf);
+            try { await F.setDoc(ref, res ? { q, ok: true, ...res, em: F.serverTimestamp() } : { q, ok: false, em: F.serverTimestamp() }); } catch (e) { /* cache é opcional */ }
+        }
+        memo.set(q, res); return res;
+    }
+    async function geocodeAll(pend, prog) {
+        const memo = new Map(), t0 = Date.now(); let feitos = 0, achados = 0; S.naoLoc = [];
+        for (const a of pend) {
+            if (S.stop) throw new Error('Interrompido. O que já foi localizado ficou guardado: ao enviar de novo, continua de onde parou.');
+            const q1 = RC.buildQuery(a), q2 = RC.buildQuery({ ...a, endereco: RC.stripNumber(a.endereco) });
+            let r = await geoQuery(q1, a.uf, memo), prec = r && r.prec;
+            if (!r && q2 !== q1) { r = await geoQuery(q2, a.uf, memo); prec = r ? 'rua' : null; }
+            if (r) { a.lat = r.lat; a.lon = r.lon; a.geoPrec = prec === 'endereco' ? 'endereco' : 'rua'; a._pend = false; achados++; } else S.naoLoc.push(a);
+            feitos++; if (feitos % 5 === 0 || feitos === pend.length) prog(feitos, pend.length, achados, (Date.now() - t0) / feitos);
+        }
+    }
+    function baixarNaoLocalizados() {
+        const linhas = [['Designacao', 'Endereco', 'Cidade', 'UF', 'Consulta usada']].concat(S.naoLoc.map(a => [a.id, a.endereco, a.cidade, a.uf, RC.buildQuery(a)]));
+        const csv = '\ufeff' + linhas.map(l => l.map(c => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+        const u = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a');
+        a.href = u; a.download = 'ativos_nao_localizados.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(u), 2000);
     }
     async function doImport() {
         if (!S.assets.length || S.busy) return;
-        if (!confirm(`Enviar ${S.assets.length.toLocaleString('pt-BR')} ativos para o Firebase${$('impStale').checked ? ' e remover os que não estão mais na planilha' : ''}?`)) return;
-        S.busy = true; const btn = $('btnImport'); busy(btn, true);
-        const { F, db } = S.fb, importId = Date.now().toString(36), prog = $('impProg'); prog.hidden = false;
+        const pend0 = S.assets.filter(a => a._pend).length;
+        if (!confirm(`Enviar ${S.assets.length.toLocaleString('pt-BR')} ativos para o Firebase${pend0 ? ` (${pend0.toLocaleString('pt-BR')} serão localizados pelo endereço primeiro)` : ''}${$('impStale').checked ? ' e remover os que não estão mais na planilha' : ''}?`)) return;
+        S.busy = true; S.stop = false; const btn = $('btnImport'); busy(btn, true); $('btnNaoLoc').hidden = true;
+        const { F, db } = S.fb, importId = Date.now().toString(36), prog = $('impProg'); prog.hidden = false; prog.value = 0;
         try {
-            const col = F.collection(db, 'ativos'), tot = S.assets.length;
+            const pend = S.assets.filter(a => a._pend);
+            if (pend.length) {
+                $('btnImpStop').hidden = false;
+                await geocodeAll(pend, (f, t, ach, seg) => { prog.value = Math.round(f / t * 100); const falta = Math.ceil((t - f) * seg / 60000); $('impProgTxt').textContent = `Localizando endereços: ${f.toLocaleString('pt-BR')} de ${t.toLocaleString('pt-BR')} (${ach.toLocaleString('pt-BR')} localizados, faltam ~${falta} min)`; });
+                $('btnImpStop').hidden = true;
+            }
+            const lista = S.assets.filter(a => !a._pend), col = F.collection(db, 'ativos'), tot = lista.length;
+            if (!tot) throw new Error('Nenhum endereço foi localizado. Confira a coluna de endereço/cidade/UF.');
             for (let i = 0; i < tot; i += 400) {
                 const batch = F.writeBatch(db);
-                S.assets.slice(i, i + 400).forEach(a => {
-                    const { _docId, ...d } = a;
+                lista.slice(i, i + 400).forEach(a => {
+                    const { _docId, _pend, ...d } = a;
                     batch.set(F.doc(col, _docId), { ...d, g3: RC.geohash(a.lat, a.lon, 3), g4: RC.geohash(a.lat, a.lon, 4), g5: RC.geohash(a.lat, a.lon, 5), importId, atualizadoEm: F.serverTimestamp() });
                 });
                 await batch.commit(); prog.value = Math.min(100, Math.round(((i + 400) / tot) * 100)); $('impProgTxt').textContent = `Enviando ${Math.min(i + 400, tot).toLocaleString('pt-BR')} de ${tot.toLocaleString('pt-BR')}`;
@@ -150,11 +210,13 @@
                 for (let i = 0; i < old.docs.length; i += 400) { const b = F.writeBatch(db); old.docs.slice(i, i + 400).forEach(d => b.delete(d.ref)); await b.commit(); }
                 removidos = old.docs.length;
             }
-            await F.setDoc(F.doc(db, 'meta', 'ativos'), { importId, total: tot, arquivo: S.sheet.name, semCoordenada: S.semCoord, removidos, atualizadoEm: F.serverTimestamp(), por: S.user.email });
-            toast(`Base atualizada: ${tot.toLocaleString('pt-BR')} ativos${removidos ? `, ${removidos.toLocaleString('pt-BR')} removidos` : ''}.`);
-            $('impProgTxt').textContent = 'Concluído.'; loadMeta();
-        } catch (e) { toast(friendlyDbErr(e), 'err'); $('impProgTxt').textContent = friendlyDbErr(e); }
-        finally { S.busy = false; busy(btn, false); }
+            const nl = (S.naoLoc || []).length;
+            await F.setDoc(F.doc(db, 'meta', 'ativos'), { importId, total: tot, arquivo: S.sheet.name, semCoordenada: S.semCoord, naoLocalizados: nl, removidos, atualizadoEm: F.serverTimestamp(), por: S.user.email });
+            toast(`Base atualizada: ${tot.toLocaleString('pt-BR')} ativos${nl ? `, ${nl.toLocaleString('pt-BR')} sem localização` : ''}.`);
+            $('impProgTxt').textContent = `Concluído: ${tot.toLocaleString('pt-BR')} ativos enviados${nl ? `. ${nl.toLocaleString('pt-BR')} endereços não foram localizados e ficaram de fora.` : '.'}`;
+            $('btnNaoLoc').hidden = !nl; loadMeta();
+        } catch (e) { toast(friendlyDbErr(e), 'err'); $('impProgTxt').textContent = friendlyDbErr(e); $('btnNaoLoc').hidden = !(S.naoLoc && S.naoLoc.length); }
+        finally { S.busy = false; $('btnImpStop').hidden = true; busy(btn, false); }
     }
 
     // ---------- BUSCA ----------
@@ -217,7 +279,7 @@
         const geoAlt = S.geo.length > 1 ? `<div class="geo-alt"><span>Outros endereços encontrados:</span>${S.geo.slice(1).map((g, i) => `<button type="button" class="chip" data-geo="${i + 1}">${esc(g.nome.split(',').slice(0, 3).join(','))}</button>`).join('')}</div>` : '';
         const rows = S.found.map(a => `<tr>
             <td><div class="lk-id">${esc(a.id || a.docId)}</div><div class="lk-sub">${[a.tipo, a.produto, a.pop && 'POP ' + a.pop].filter(Boolean).map(esc).join(' | ') || '&nbsp;'}</div></td>
-            <td class="n"><b>${fmtDist(a.dist)}</b><div class="lk-sub tone-${TOM[a.faixa.id]}">${esc(a.faixa.label)}</div></td>
+            <td class="n"><b>${fmtDist(a.dist)}</b><div class="lk-sub tone-${TOM[a.faixa.id]}">${esc(a.faixa.label)}</div>${a.geoPrec === 'rua' ? '<div class="lk-sub">posição só pela rua</div>' : ''}</td>
             <td class="n"><b>${a.mbps ? Quote.speedLabel(a.mbps) : '—'}</b><div class="lk-sub m-${a.match.id}">${esc(a.match.label)}${a.match.falta ? ` (−${Quote.speedLabel(a.match.falta)})` : ''}</div></td>
             <td><div>${esc([a.endereco, a.cidade && a.uf ? a.cidade + '/' + a.uf : a.cidade || a.uf].filter(Boolean).join(' | ') || '—')}</div>
                 <div class="lk-sub">${[a.cliente, a.status].filter(Boolean).map(esc).join(' | ')}${a.extra && Object.keys(a.extra).length ? `<details class="lk-more"><summary>Mais dados</summary>${Object.entries(a.extra).map(([k, x]) => `<div><span>${esc(k)}</span> ${esc(x)}</div>`).join('')}</details>` : ''}</div></td>
@@ -230,7 +292,7 @@
                 <div class="pt-meta"><span>${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}</span>${S.ufRef ? `<span>UF ${esc(S.ufRef)}</span>` : ''}<a href="${mapsUrl(p.lat, p.lon)}" target="_blank" rel="noopener">Abrir no mapa</a>${p.origem === 'endereco' ? '<span class="lk-sub">Posição aproximada pelo endereço: confira no mapa</span>' : ''}</div>${geoAlt}</div>
             <div class="verdict ${v.tom} card"><div class="v-t">${v.titulo}</div><div class="v-x">${v.texto}</div>${n && n.dist <= 500 ? '<div class="v-h">Ativo a menos de 500 m: vale marcar "Fibra a menos de 500 m" nos projetos especiais da cotação.</div>' : ''}</div>
             ${S.found.length ? `<div class="card"><span class="card-label">Links próximos (${S.found.length})</span><div class="table-wrap"><table class="tbl links"><thead><tr><th>Link</th><th class="n">Distância</th><th class="n">Velocidade</th><th>Local</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-                <p class="note">A velocidade é a do circuito cadastrado: a planilha não informa quanta banda ainda está livre nele. Confirme a capacidade e a viabilidade técnica antes de ofertar.</p></div>` : ''}
+                ${S.found.some(a => a.geoPrec) ? '<p class="note">Estes ativos foram localizados pelo endereço (geocodificação): a distância pode variar algumas dezenas de metros, e mais ainda onde aparece "posição só pela rua".</p>' : ''}<p class="note">A velocidade é a do circuito cadastrado: a planilha não informa quanta banda ainda está livre nele. Confirme a capacidade e a viabilidade técnica antes de ofertar.</p></div>` : ''}
             <div class="card"><span class="card-label">Quanto custa</span>${ext}${lpu}</div>
             <div class="card"><span class="card-label">Análise com IA</span><div id="rIaBody" class="ia-empty">Gera um parecer comercial com os links acima e a referência de LPU. Só comenta, não inventa valores.</div>
                 <div class="actions"><button type="button" class="btn dark" id="rAnalyze"><span class="spin" aria-hidden="true"></span><span data-ic="sparkle"></span><span class="lbl">Analisar com IA</span></button>
@@ -301,5 +363,7 @@
         $('impSheet').addEventListener('change', e => readSheet(+e.target.value));
         $('impFields').addEventListener('change', e => { const s = e.target.closest('select'); if (s) { S.map[s.dataset.k] = +s.value; evaluate(); } });
         $('btnImport').addEventListener('click', doImport);
+        $('btnImpStop').addEventListener('click', () => { S.stop = true; $('btnImpStop').hidden = true; });
+        $('btnNaoLoc').addEventListener('click', baixarNaoLocalizados);
     });
 })();

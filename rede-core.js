@@ -139,7 +139,20 @@
         return out;
     }
 
-    // Converte uma linha (array) em ativo. map = { key: indice }. Devolve { ok, ativo } ou { ok:false, motivo }.
+    // Texto de busca do endereço (para geocodificar). Não repete cidade/UF que já estejam no endereço.
+    function buildQuery(a) {
+        const parts = [String(a.endereco || '').trim()], n = norm(a.endereco);
+        if (a.cidade && !n.includes(norm(a.cidade))) parts.push(a.cidade);
+        if (a.uf && !new RegExp('\\b' + a.uf.toLowerCase() + '\\b').test(n)) parts.push(a.uf);
+        parts.push('Brasil');
+        return parts.filter(Boolean).join(', ');
+    }
+    // Tira o número da porta ("Rua X, 123" -> "Rua X") para uma segunda tentativa, quando o número não existe no mapa.
+    const stripNumber = t => String(t || '').replace(/(,\s*|\bn[º°o.]*\s*)\d{1,5}[A-Za-z]?\b/gi, '').replace(/\s{2,}/g, ' ').trim();
+    function hashStr(t) { let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + t.length.toString(36); }
+
+    // Converte uma linha (array) em ativo. map = { key: indice }.
+    // Devolve { ok:true, ativo } (com lat/lon), { ok:true, pendente:true, ativo } (só endereço: precisa geocodificar) ou { ok:false, motivo }.
     function rowToAsset(row, headers, map) {
         const get = k => (map[k] != null && map[k] >= 0 ? row[map[k]] : undefined);
         const txt = k => { const v = get(k); return v == null ? '' : String(v).trim(); };
@@ -152,22 +165,23 @@
             const p = parseCoordPair(get('coord')) || parseCoordPair(get('endereco')) || parseCoordPair(row.join(' ; '));
             if (p) { lat = p.lat; lon = p.lon; }
         }
-        if (lat == null || lon == null) return { ok: false, motivo: 'sem_coordenada' };
+        const temCoord = lat != null && lon != null;
+        if (!temCoord && norm(txt('endereco')).length < 6) return { ok: false, motivo: 'sem_coordenada' };
         const usados = new Set(Object.values(map).filter(i => i >= 0));
         const extra = {};
         headers.forEach((h, i) => { if (!usados.has(i) && row[i] != null && String(row[i]).trim() !== '' && h) extra[String(h).trim().slice(0, 60)] = String(row[i]).trim().slice(0, 200); });
         const ativo = {
-            id: txt('id'), lat: +lat.toFixed(6), lon: +lon.toFixed(6),
+            id: txt('id'), lat: temCoord ? +lat.toFixed(6) : null, lon: temCoord ? +lon.toFixed(6) : null,
             mbps: parseMbps(get('mbps')), endereco: txt('endereco'), cidade: txt('cidade'),
             uf: txt('uf').toUpperCase().slice(0, 2), tipo: txt('tipo'), produto: txt('produto'),
             cliente: txt('cliente'), status: txt('status'), pop: txt('pop'), extra
         };
-        return { ok: true, ativo };
+        return temCoord ? { ok: true, ativo } : { ok: true, pendente: true, ativo };
     }
 
     // ID do documento no Firestore: a designação, sem "/" nem caracteres problemáticos; sem designação, usa as coordenadas.
     function docId(ativo, vistos) {
-        let base = (ativo.id || `pt_${ativo.lat}_${ativo.lon}_${(ativo.mbps || 0)}`).replace(/[\/\\#?\[\]\s]+/g, '_').replace(/^\.+/, '').slice(0, 140) || 'sem_id';
+        let base = (ativo.id || (ativo.lat != null ? `pt_${ativo.lat}_${ativo.lon}_${(ativo.mbps || 0)}` : 'end_' + hashStr(buildQuery(ativo)))).replace(/[\/\\#?\[\]\s]+/g, '_').replace(/^\.+/, '').slice(0, 140) || 'sem_id';
         let id = base, n = 1;
         while (vistos.has(id)) { n++; id = `${base}-${n}`; }
         vistos.add(id);
@@ -175,7 +189,7 @@
     }
 
     const api = { FAIXAS_DIST, CAMPOS, norm, parseNum, parseCoordPair, parseMbps, geohash, cellSize, cellsAround, guaranteedRadius,
-        distanceM, faixaDist, matchSpeed, detectColumns, rowToAsset, docId, inBrasil };
+        distanceM, faixaDist, matchSpeed, detectColumns, rowToAsset, docId, inBrasil, buildQuery, stripNumber, hashStr };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.RedeCore = api;
 

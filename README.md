@@ -48,7 +48,7 @@ Cada UF é colorida pela mensalidade da LPU (operadora + produto + prazo + veloc
 1. Console Firebase: crie o projeto, adicione um app Web, ative **Authentication > E-mail/senha**, desligue o cadastro público e crie seus usuários.
 2. Crie o **Firestore** e cole `firestore.rules` (ajuste a lista de e-mails que podem importar).
 3. Cole a config em `firebase-config.js`.
-4. Aba **Rede própria > Base de ativos**: envie a planilha do Metabase (.xlsx/.csv). O sistema detecta as colunas; confira o mapeamento e envie. Cada importação pode remover o que saiu da planilha.
+4. Aba **Rede própria > Base de ativos**: envie a planilha do Metabase (.xlsx/.csv). O sistema detecta as colunas; confira o mapeamento e envie. Sem latitude/longitude, ele localiza cada endereço (OpenStreetMap, ~1 por segundo, resultado guardado em `geocache`); os não localizados podem ser baixados em CSV. Cada importação pode remover o que saiu da planilha.
 5. Busca: endereço (geocodificação OpenStreetMap, posição aproximada) e/ou coordenadas. Mostra os links mais próximos, distância, velocidade vs. pedido, custo estimado de extensão (R$/m informado por você) e a LPU de terceiros para comparar.
 Obs.: a velocidade do ativo é a do circuito cadastrado, não a banda livre.
 
