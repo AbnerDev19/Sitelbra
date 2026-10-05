@@ -11,6 +11,7 @@ try {
 } catch (e) { /* sem .env */ }
 
 const aiHandler = require('./api/ai.js');
+const localHandler = require('./api/local.js');
 const PORT = process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.ico': 'image/x-icon' };
 // Só arquivos públicos do front-end, na raiz. Nunca .env, api/, tests/ ou dev-server.js.
@@ -19,6 +20,7 @@ const PUBLICO = /^\/[A-Za-z0-9_-]+\.(html|css|js|svg|png|jpg|jpeg|ico)$/;
 http.createServer((req, res) => {
     const url = (req.url || '/').split('?')[0];
     if (url === '/api/ai') return aiHandler(req, res);
+    if (url === '/api/local') return localHandler(req, res);
     const file = url === '/' ? '/index.html' : url;
     if (!PUBLICO.test(file) || file === '/dev-server.js') { res.statusCode = 404; return res.end('Não encontrado'); }
     fs.readFile(path.join(__dirname, file), (err, data) => {

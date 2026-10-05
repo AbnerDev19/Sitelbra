@@ -67,6 +67,11 @@
         return { lat, lon };
     }
 
+    const ESTADOS = { 'acre': 'AC', 'alagoas': 'AL', 'amapa': 'AP', 'amazonas': 'AM', 'bahia': 'BA', 'ceara': 'CE', 'distrito federal': 'DF', 'espirito santo': 'ES',
+        'goias': 'GO', 'maranhao': 'MA', 'mato grosso': 'MT', 'mato grosso do sul': 'MS', 'minas gerais': 'MG', 'para': 'PA', 'paraiba': 'PB', 'parana': 'PR',
+        'pernambuco': 'PE', 'piaui': 'PI', 'rio de janeiro': 'RJ', 'rio grande do norte': 'RN', 'rio grande do sul': 'RS', 'rondonia': 'RO', 'roraima': 'RR',
+        'santa catarina': 'SC', 'sao paulo': 'SP', 'sergipe': 'SE', 'tocantins': 'TO' };
+
     // ---------- NOMINATIM (endereço -> ponto) ----------
     // Aceita o item de /search ou o objeto de /reverse.
     function parseNominatim(x) {
@@ -76,8 +81,8 @@
         if (!isFinite(lat) || !isFinite(lon)) return null;
         return {
             lat, lon, nome: x.display_name || '',
-            municipio: a.city || a.town || a.village || a.municipality || '',
-            uf: String(a['ISO3166-2-lvl4'] || '').replace(/^BR-/, ''),
+            municipio: a.city || a.town || a.village || a.municipality || a.city_district || '',
+            uf: String(a['ISO3166-2-lvl4'] || '').replace(/^BR-/, '') || ESTADOS[norm(a.state)] || '',
             bairro: a.suburb || a.neighbourhood || a.quarter || a.city_district || '',
             // Sem número da casa, o ponto é da rua ou do bairro: posição aproximada.
             precisao: a.house_number ? 'endereco' : 'rua_ou_bairro'
@@ -85,8 +90,20 @@
     }
 
     // ---------- OVERPASS (entorno no OpenStreetMap) ----------
-    function buildOverpassQuery(lat, lon) {
+    function buildOverpassQuery(lat, lon, lite) {
         const p = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+        // Versão reduzida: sem áreas (is_in) e sem contagem de construções. Só o essencial por adicional.
+        if (lite) return `[out:json][timeout:20];
+(
+  nwr(around:${AJ.shoppingM},${p})["shop"="mall"];
+  nwr(around:${AJ.aeroportoPertoM},${p})["aeroway"="aerodrome"];
+  nwr(around:${AJ.aeroportoPertoM},${p})["aeroway"="terminal"];
+  nwr(around:${AJ.industriaM},${p})["building"~"^(industrial|warehouse|factory)$"];
+  nwr(around:${AJ.industriaM},${p})["landuse"="industrial"];
+  nwr(around:${AJ.datacenterM},${p})["telecom"="data_center"];
+  nwr(around:300,${p})["informal"="yes"];
+);
+out tags center ${AJ.maxElementos};`;
         return `[out:json][timeout:25];
 is_in(${p})->.a;
 (area.a["landuse"]; area.a["place"]; area.a["aeroway"];);
@@ -111,6 +128,9 @@ out count;`;
 
     // Normaliza a resposta: áreas que CONTÊM o ponto, elementos próximos (com centro) e contagem de construções.
     function parseOverpass(j) {
+        if (!j || typeof j !== 'object') throw new Error('resposta inválida do mapa');
+        // O Overpass responde 200 com "remark" quando estoura tempo/memória: sem elementos, isso é falha, não "nada encontrado".
+        if (j.remark && /error|timed out|out of memory/i.test(j.remark) && !(j.elements || []).length) throw new Error('o servidor do mapa não concluiu a consulta (' + String(j.remark).slice(0, 80) + ')');
         const out = { areas: [], elementos: [], predios: null };
         const seen = new Set();
         ((j && j.elements) || []).forEach(e => {
@@ -129,7 +149,9 @@ out count;`;
     function acharMunicipio(lista, nome) {
         const alvo = norm(nome);
         if (!alvo || !Array.isArray(lista)) return null;
-        return lista.find(m => norm(m.nome) === alvo) || null;
+        return lista.find(m => norm(m.nome) === alvo)
+            || lista.find(m => norm(m.nome).replace(/^(municipio|cidade) de /, '') === alvo.replace(/^(municipio|cidade) de /, ''))
+            || null;
     }
     // Estimativa populacional (agregado 6579, variável 9324), período mais recente.
     function parseIbgePopulacao(j) {

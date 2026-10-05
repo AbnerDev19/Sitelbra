@@ -20,6 +20,7 @@ Sem `GEMINI_API_KEY` tudo funciona, exceto "Melhorar com IA" e "Análise comerci
 | `history.js` | Histórico em `localStorage` (chave `sitelbra.historico.v1`). Cada registro guarda assunto do e-mail, data/hora, adicionais marcados e o local analisado. |
 | `local-core.js` | Análise do local (puro, testável): transforma mapa + IBGE em sinais por adicional. |
 | `local.js` | Análise do local: consulta OpenStreetMap e IBGE, chama a IA e aplica os adicionais. |
+| `api/local.js`, `api/_shared.js` | Mesma consulta de mapa/IBGE feita pelo servidor (tenta 2 servidores do Overpass, repete, identifica o sistema). Se não existir, o navegador consulta direto. |
 | `ai.js` + `api/ai.js` | Cliente da IA e proxy no servidor. A chave só existe no servidor. |
 | `dev-server.js` | Servidor SÓ para uso local (a Vercel não usa; por isso não se chama server.js) sem dependências (serve o site e `/api/ai`). |
 | `rede-core.js` | Aba Rede própria: geohash, distância, leitura de coordenadas/velocidade e colunas da planilha (puro, testável). |
@@ -71,3 +72,10 @@ Limites: o OpenStreetMap pode estar incompleto ("sem indício" não é "não se 
 
 ## Histórico (o que é salvo)
 Cada cotação salva guarda: **assunto do e-mail** (campo editável na aba Proposta, gerado como `Cotação Sitelbra | produto velocidade | UF | prazos`), **data e hora** em que foi salvo, **adicionais marcados** (inclusive os sem efeito no preço) e o **local analisado** (endereço, município/UF e o que foi aplicado). Registros antigos continuam abrindo; para eles os adicionais são reconstruídos das opções salvas. O assunto não cita a operadora.
+
+### Se a análise do local falhar
+A tela mostra **Detalhes técnicos** com o motivo de cada tentativa. Os mais comuns:
+- `HTTP 429` / `HTTP 504` / `tempo esgotado` no Overpass: os servidores públicos do OpenStreetMap estão sobrecarregados (cada IP tem poucas consultas simultâneas). Espere 1 ou 2 minutos. O sistema já tenta 2 servidores (`overpass-api.de` e `overpass.private.coffee`) e, se a consulta completa for recusada, uma versão reduzida (sem classificação urbana/rural).
+- `sem resposta (conexão, bloqueador...)`: algo no seu computador/rede bloqueia o domínio. Teste sem extensões de bloqueio e peça à TI para liberar `overpass-api.de`, `overpass.private.coffee`, `nominatim.openstreetmap.org` e `servicodados.ibge.gov.br`.
+- `município ... não encontrado na lista do IBGE`: o mapa devolveu um nome diferente do IBGE. Digite o endereço com cidade/UF.
+Na Vercel, `api/local.js` roda com até 30 s (`vercel.json`). Para volume alto ou uso crítico, hospede seu próprio Overpass e troque a lista `OVERPASS` em `api/local.js` e `local.js`.

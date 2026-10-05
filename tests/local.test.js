@@ -88,5 +88,14 @@ const f = L.buildFacts({ lat: 1, lon: 1, municipio: 'X', uf: 'BA', nome: 'Rua Se
 ok('facts sem endereço completo', !JSON.stringify(f).includes('Rua Secreta') && !('lat' in f));
 ok('patchOpts só ids válidos', JSON.stringify(L.patchOpts(['shopping', 'sla', 'foo'])) === '{"shopping":true}');
 
+// robustez: UF pelo nome do estado, consulta reduzida, timeout do Overpass (HTTP 200 + remark)
+ok('UF pelo nome do estado', L.parseNominatim({ lat: '1', lon: '1', address: { town: 'Xique', state: 'Bahia' } }).uf === 'BA');
+const lite = L.buildOverpassQuery(-15.78, -47.93, true);
+ok('consulta reduzida sem is_in/count', !/is_in|out count/.test(lite) && /out tags center/.test(lite) && (lite.match(/\(/g) || []).length === (lite.match(/\)/g) || []).length);
+let erro = ''; try { L.parseOverpass({ elements: [], remark: 'runtime error: Query timed out in "query" at line 3 after 26 seconds.' }); } catch (e) { erro = e.message; }
+ok('remark de timeout vira falha (não "nada encontrado")', /não concluiu/.test(erro), erro);
+ok('remark com resultado não derruba', L.parseOverpass({ elements: [cnt(3)], remark: 'runtime error: x' }).predios === 3);
+ok('município com prefixo', L.acharMunicipio([{ id: 7, nome: 'Xique-Xique' }], 'Município de Xique Xique').id === 7);
+
 console.log(fails ? `${fails} falha(s) de ${n}` : `local: ${n} verificações OK`);
 process.exit(fails ? 1 : 0);

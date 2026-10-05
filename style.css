@@ -641,3 +641,7 @@ body { line-height: 1.55; }
 .loc-ev { color: var(--muted); font-size: 12.5px; }
 .loc-none { color: var(--muted); }
 .loc-conferir { margin: 0; padding-left: 18px; color: var(--text); display: grid; gap: 4px; }
+
+.loc-det { font-size: 12px; color: var(--muted); }
+.loc-det summary { cursor: pointer; }
+.loc-det ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; overflow-wrap: anywhere; }
