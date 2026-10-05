@@ -600,3 +600,44 @@ body { line-height: 1.55; }
 
 .map-det { margin: 8px 0 12px; } .map-det > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 13px; padding: 6px 0; } .map-det[open] > summary { margin-bottom: 8px; }
 #viewRede .adv-body .btn { margin: 4px 6px 4px 0; }
+
+/* =====================================================================
+   ASSUNTO DO E-MAIL, HISTÓRICO ENRIQUECIDO E ANÁLISE DO LOCAL (IA)
+   ===================================================================== */
+.subj { margin-bottom: 12px; }
+.subj > label .hint { font-weight: 400; color: var(--muted); }
+.subj-row { display: flex; gap: 8px; align-items: stretch; }
+.subj-row .input { flex: 1; min-width: 0; }
+.subj-row .btn { white-space: nowrap; }
+
+.hist-subject { font-weight: 700; color: var(--ink); overflow-wrap: anywhere; margin-bottom: 4px; }
+.hist-ad { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.hist-ad-k { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-right: 2px; }
+.hist-chip { font-size: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-weight: 600; }
+.hist-none { font-size: 12.5px; color: var(--muted); }
+.hist-loc { display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.hist-loc .ic { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+
+.loc { margin-bottom: 8px; }
+.loc .btn { width: 100%; justify-content: center; }
+.loc-result { margin-top: 12px; display: grid; gap: 10px; font-size: 13px; }
+.loc-load { color: var(--muted); }
+.loc-err { color: var(--bad); background: var(--bad-bg); border-radius: var(--r-sm); padding: 10px 12px; }
+.loc-head { display: flex; flex-direction: column; gap: 2px; color: var(--ink); }
+.loc-pop { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.loc-resumo { color: var(--text); }
+.loc-aviso { color: var(--warn); background: var(--warn-bg); border-radius: var(--r-sm); padding: 8px 10px; font-size: 12.5px; }
+.loc-list { display: grid; gap: var(--gap-opt, 8px); }
+.loc-item { display: flex; gap: 10px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px; cursor: pointer; }
+.loc-item:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.loc-item input { margin: 3px 0 0; width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+.loc-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.loc-nome { font-weight: 600; color: var(--ink); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.loc-tag { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+.loc-tag.forte { background: var(--ok-bg); color: var(--ok); }
+.loc-tag.possivel { background: var(--warn-bg); color: var(--warn); }
+.loc-conf { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+.loc-mot, .loc-ev { color: var(--text); overflow-wrap: anywhere; }
+.loc-ev { color: var(--muted); font-size: 12.5px; }
+.loc-none { color: var(--muted); }
+.loc-conferir { margin: 0; padding-left: 18px; color: var(--text); display: grid; gap: 4px; }

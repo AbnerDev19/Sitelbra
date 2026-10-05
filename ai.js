@@ -23,5 +23,5 @@ window.AI = (function () {
         }
         return json.text;
     }
-    return { melhorar: d => run('melhorar', d), analisar: d => run('analisar', d), rede: d => run('rede', d) };
+    return { melhorar: d => run('melhorar', d), analisar: d => run('analisar', d), rede: d => run('rede', d), local: d => run('local', d) };
 })();

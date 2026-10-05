@@ -283,6 +283,7 @@ function renderResult() {
         lastSig = sig;
         liveText = Quote.buildCommercialText(q);
         $('emailTemplate').value = liveText; dirty = false;
+        $('emailSubject').value = Quote.buildEmailSubject(sel);
         $('iaBody').className = 'ia-empty';
         $('iaBody').textContent = 'Gere observações sobre instalação, fatores de maior impacto e prazo, usando apenas os dados desta cotação.';
         document.querySelectorAll('.m-v, .viab').forEach(el => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
@@ -377,8 +378,15 @@ function activateTab(name, focus) {
 function fmtDate(iso) { try { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return ''; } }
 function saveToHistory(q) {
     const s = q.sel, d = q.display;
-    const list = Historico.add({ op: s.op, prod: s.prod, uf: s.uf, speed: s.speed, prazos: s.prazos, dur: s.dur, opts: s.opts, impostoMode: s.impostoMode, mensal: d.mensal, inst: d.inst, rotulo: d.rotulo });
+    const assunto = $('emailSubject').value.trim() || Quote.buildEmailSubject(s);
+    const list = Historico.add({ op: s.op, prod: s.prod, uf: s.uf, speed: s.speed, prazos: s.prazos, dur: s.dur, opts: s.opts, impostoMode: s.impostoMode, mensal: d.mensal, inst: d.inst, rotulo: d.rotulo,
+        assunto, adicionais: Quote.optsLabels(s.opts), local: window.lastLocal || null });
     renderHistory(); return !!list;
+}
+function histAdicionais(e) {
+    const ad = Array.isArray(e.adicionais) ? e.adicionais : Quote.optsLabels(e.opts); // registros antigos não tinham a lista
+    const loc = e.local && (e.local.municipio || e.local.endereco) ? `<div class="hist-loc">${ic('pin')}<span>Local analisado: ${esc([e.local.endereco, [e.local.municipio, e.local.uf].filter(Boolean).join('/')].filter(Boolean).join(' | '))}</span></div>` : '';
+    return `<div class="hist-ad"><span class="hist-ad-k">Adicionais</span>${ad.length ? ad.map(a => `<span class="hist-chip">${esc(a)}</span>`).join('') : '<span class="hist-none">Nenhum</span>'}</div>${loc}`;
 }
 function renderHistory() {
     const list = Historico.load(), box = $('histList');
@@ -386,8 +394,10 @@ function renderHistory() {
     $('btnClearHist').hidden = !list.length;
     if (!list.length) { box.innerHTML = '<div class="hist-empty"><strong>Nenhuma cotação salva ainda.</strong><br>Cada vez que você usar "Calcular cotação", ela é registrada aqui, neste navegador.</div>'; return; }
     box.innerHTML = list.map(e => `<article class="hist-item" data-id="${esc(e.id)}">
-        <div class="hist-top"><span>${esc(fmtDate(e.data))}</span><span>${esc(e.uf)} | ${esc(e.dur)} meses</span></div>
+        <div class="hist-top"><span title="Data e hora em que foi salvo">Salvo em ${esc(fmtDate(e.data))}</span><span>${esc(e.uf)} | ${esc(e.dur)} meses</span></div>
+        <div class="hist-subject">${esc(e.assunto || Quote.buildEmailSubject(e))}</div>
         <div class="hist-title">${esc(e.op)} | ${esc(e.prod)} | ${esc(Quote.speedLabel(e.speed))}</div>
+        ${histAdicionais(e)}
         <div class="hist-vals"><span>Mensalidade<b>${money(e.mensal)}</b></span><span>Instalação<b>${money(e.inst)}</b></span><span>${esc(e.rotulo || '')}</span></div>
         <div class="hist-act"><button type="button" class="btn secondary sm" data-act="open">${ic('open')}Abrir</button><button type="button" class="btn ghost sm" data-act="dup">${ic('copy')}Duplicar</button><button type="button" class="btn ghost sm" data-act="del">${ic('trash')}Excluir</button></div></article>`).join('');
 }
@@ -399,7 +409,10 @@ function openEntry(e) {
     setImposto(e.impostoMode || 'sem', true);
     renderPrazoButtons(); renderOperators(); updateProducts(); renderVisualUF(); updateSpeeds(); setOptions(e.opts);
     if (Object.values(e.opts || {}).some(Boolean)) setAdv(true);
-    calculate(); toggleDrawer(false); toast('Cotação aberta.');
+    calculate();
+    $('emailSubject').value = e.assunto || Quote.buildEmailSubject(e);
+    window.lastLocal = e.local || null; if (window.LocalUI) window.LocalUI.restore(e.local);
+    toggleDrawer(false); toast('Cotação aberta.');
     $('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 let drawerOpener = null;
@@ -525,12 +538,13 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btnCopySummary').addEventListener('click', e => copySummary(e.currentTarget));
     $('btnCopySummary2').addEventListener('click', e => copySummary(e.currentTarget));
     $('btnCopy').addEventListener('click', copyEmail);
+    $('btnCopySubject').addEventListener('click', async () => { const v = $('emailSubject').value; if (!v) return; if (await copyText(v)) { flash($('btnCopySubject'), 'Assunto copiado!'); toast('Assunto copiado!'); } else toast('Não foi possível copiar.', 'err'); });
     $('btnMagicAI').addEventListener('click', callGeminiAI);
     $('btnAnalyze').addEventListener('click', analyzeAI);
     $('btnRegen').addEventListener('click', () => {
         if (!lastQuote || !lastQuote.ok) return;
         if (dirty && !confirm('Substituir o texto atual pelo texto padrão? Suas edições e o texto da IA serão perdidos.')) return;
-        $('emailTemplate').value = Quote.buildCommercialText(lastQuote); dirty = false; toast('Texto regenerado.');
+        $('emailTemplate').value = Quote.buildCommercialText(lastQuote); $('emailSubject').value = Quote.buildEmailSubject(lastQuote.sel); dirty = false; toast('Texto e assunto regenerados.');
     });
     $('emailTemplate').addEventListener('input', () => { dirty = true; });
     $('btnExport').addEventListener('click', exportProposal);

@@ -17,7 +17,9 @@ Sem `GEMINI_API_KEY` tudo funciona, exceto "Melhorar com IA" e "Análise comerci
 | `lpu_*.js`, `lpu_config.js` | Tabelas LPU e carregamento. |
 | `specials.js` | Rótulos/tooltips das opções da "Análise avançada". |
 | `quote.js` | Status, composição do preço, fatores aplicados, resumo, texto comercial, comparação. Não calcula preço: chama `pricing.js` e confere que a composição fecha com o total. |
-| `history.js` | Histórico em `localStorage` (chave `sitelbra.historico.v1`). |
+| `history.js` | Histórico em `localStorage` (chave `sitelbra.historico.v1`). Cada registro guarda assunto do e-mail, data/hora, adicionais marcados e o local analisado. |
+| `local-core.js` | Análise do local (puro, testável): transforma mapa + IBGE em sinais por adicional. |
+| `local.js` | Análise do local: consulta OpenStreetMap e IBGE, chama a IA e aplica os adicionais. |
 | `ai.js` + `api/ai.js` | Cliente da IA e proxy no servidor. A chave só existe no servidor. |
 | `dev-server.js` | Servidor SÓ para uso local (a Vercel não usa; por isso não se chama server.js) sem dependências (serve o site e `/api/ai`). |
 | `rede-core.js` | Aba Rede própria: geohash, distância, leitura de coordenadas/velocidade e colunas da planilha (puro, testável). |
@@ -54,3 +56,18 @@ Obs.: a velocidade do ativo é a do circuito cadastrado, não a banda livre.
 
 ## Publicar com IA (Vercel)
 Importe o repositório na Vercel (sem build). Em Settings > Environment Variables: `GEMINI_API_KEY` (chave NOVA), e para proteger a IA `REQUIRE_AUTH=1` + `FIREBASE_API_KEY` (apiKey do firebase-config.js). Em Firebase > Authentication > Configurações > Domínios autorizados, adicione o domínio da Vercel.
+
+## Análise do local (IA)
+Na barra lateral da aba Cotação, digite o endereço (ou coordenadas) do cliente e clique em **Analisar local**.
+1. **Endereço** -> coordenadas e município (Nominatim/OpenStreetMap). Posição aproximada quando não há número.
+2. **Entorno** (Overpass/OpenStreetMap): shopping, aeroporto, galpão/indústria, datacenter, área informal/favela, uso do solo e quantidade de construções.
+3. **População** do município (IBGE): "Cidade pequena" = menos de 30 mil habitantes (mesma regra de `specials.js`).
+4. A **IA** (`/api/ai`, task `local`) só redige o parecer e a confiança sobre esses fatos. Ela não cria sugestões nem mexe em valores: se não responder, vale a análise direta do mapa.
+5. Você marca o que quer e clica em **Aplicar selecionados**: os checkboxes de "Análise avançada" são preenchidos e o preço recalcula. Nada é aplicado sozinho.
+
+Só são sugeridos adicionais que dependem do **local** (shopping, aeroporto, indústria, datacenter, cidade pequena, fora da zona urbana, zona rural, favela). SLA, dupla abordagem, rádio, comodato, MTU, IPs e provedores dependem do projeto e nunca são sugeridos. Zona rural nunca vem marcada: depende da distância, que o mapa não informa.
+
+Limites: o OpenStreetMap pode estar incompleto ("sem indício" não é "não se aplica"); Nominatim e Overpass são serviços públicos gratuitos com limite de uso (uso interno é ok; para volume alto, hospede o seu ou use um provedor pago). Limiares (raios, nº de construções) ficam em `AJ` no topo de `local-core.js`.
+
+## Histórico (o que é salvo)
+Cada cotação salva guarda: **assunto do e-mail** (campo editável na aba Proposta, gerado como `Cotação Sitelbra | produto velocidade | UF | prazos`), **data e hora** em que foi salvo, **adicionais marcados** (inclusive os sem efeito no preço) e o **local analisado** (endereço, município/UF e o que foi aplicado). Registros antigos continuam abrindo; para eles os adicionais são reconstruídos das opções salvas. O assunto não cita a operadora.

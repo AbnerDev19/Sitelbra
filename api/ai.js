@@ -45,6 +45,18 @@ Regras: use SOMENTE os dados. A velocidade do link é a do circuito cadastrado, 
 
 DADOS:
 ${JSON.stringify(d, null, 2)}`,
+    local: d => `Você recebeu fatos levantados automaticamente sobre o LOCAL de um cliente (mapa OpenStreetMap + população do IBGE). Redija o parecer para o time comercial interno.
+Responda SOMENTE com um JSON válido, sem markdown, neste formato:
+{"resumo":"2 a 3 frases sobre o tipo de local","sugestoes":[{"id":"...","confianca":"alta|media|baixa","motivo":"1 frase"}],"conferir":["pontos a confirmar com o cliente ou no mapa"]}
+Regras:
+- Em "sugestoes", use SOMENTE ids que apareçam em "sinais_do_mapa". Não crie sugestões novas e não omita nenhuma delas.
+- A confiança deve acompanhar o "nivel" (forte = alta, possivel = media ou baixa) e a precisão da posição. Posição aproximada reduz a confiança.
+- O "motivo" deve usar só as evidências fornecidas. Não invente nomes, distâncias, nem fatos que não estejam nos dados.
+- "sem_indicio_no_mapa" significa que o mapa não mostrou indício, NÃO que o adicional não se aplica: o OpenStreetMap pode estar incompleto. Se fizer sentido, lembre isso em "conferir".
+- Nunca fale de preço, valores ou multiplicadores.
+
+DADOS:
+${JSON.stringify(d, null, 2)}`,
     analisar: d => `Faça uma análise comercial desta cotação para o time interno.
 Entregue de 3 a 6 observações curtas, uma por linha, cada uma começando com "- ".
 Baseie-se apenas nos dados: relação instalação/mensalidade, fatores com maior impacto na composição, prazo contratual, status e motivos.
@@ -109,7 +121,7 @@ module.exports = async function handler(req, res) {
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: SISTEMA }] },
                 contents: [{ role: 'user', parts: [{ text: PROMPTS[task](dados) }] }],
-                generationConfig: { temperature: 0.4, maxOutputTokens: 1200 }
+                generationConfig: task === 'local' ? { temperature: 0.2, maxOutputTokens: 2000, responseMimeType: 'application/json' } : { temperature: 0.4, maxOutputTokens: 1200 }
             }),
             signal: ctrl.signal
         });

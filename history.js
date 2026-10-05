@@ -21,6 +21,7 @@ window.Historico = (function () {
     function add(entry) {
         const list = load();
         const novo = Object.assign({ id: uid(), data: new Date().toISOString() }, entry);
+        // Mesma cotação da última: atualiza data, assunto e local (o que a pessoa pode ter mudado), sem duplicar.
         if (list[0] && sig(list[0]) === sig(novo)) { list[0] = Object.assign({}, novo, { id: list[0].id }); }
         else list.unshift(novo);
         return persist(list) ? list : null;

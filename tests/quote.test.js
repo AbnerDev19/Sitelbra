@@ -67,5 +67,16 @@ const claroCmp = cmp.find(x => x.op === 'Claro'), claroQ = Q.buildQuote({ ...bas
 ok('comparação = cotação individual', Math.abs(claroCmp.r.mensalFull - claroQ.r.mensalFull) < 1e-9);
 // Resumo
 ok('resumo contém operadora', Q.buildSummaryText(claroQ).includes('Operadora: Claro'));
+
+// Histórico: assunto do e-mail e lista de adicionais marcados
+{
+    const q = Q.buildQuote({ ...base, op: 'Claro', prod: 'L2-MPLS', speed: 100, prazos: [36, 12], opts: { shopping: true, rural: true, distancia: 2500, qtdIp: 4, sla: true } }, C);
+    const subj = Q.buildEmailSubject(q.sel);
+    ok('assunto com produto, UF e prazos', subj === 'Cotação Sitelbra | L2-MPLS 100 Mbps | DF | 12/36 meses', subj);
+    ok('assunto sem operadora', !/Claro/.test(subj));
+    ok('adicionais marcados', Q.optsLabels(q.sel.opts).join('|') === 'Shopping Center|Zona rural (2.500 m)|SLA maior|IPs fixos (4)', Q.optsLabels(q.sel.opts).join('|'));
+    ok('sem adicionais', Q.optsLabels({}).length === 0 && Q.optsLabels(undefined).length === 0);
+    ok('assunto de registro antigo (sem prazos)', Q.buildEmailSubject({ prod: 'IP', speed: 1000, uf: 'SP', dur: 24 }) === 'Cotação Sitelbra | IP 1 Gbps | SP | 24 meses');
+}
 console.log(`${n} verificações,`, fails ? 'FALHAS: ' + fails : 'TODAS PASSARAM');
 process.exit(fails ? 1 : 0);

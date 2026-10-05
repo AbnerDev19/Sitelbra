@@ -237,6 +237,40 @@
         return q.factors.filter(x => x.k !== 'speed' && !/^prazo/.test(x.k)).map(x => x.label);
     }
 
+    // Adicionais que a pessoa MARCOU (independe de terem efeito no preço). Serve para o histórico.
+    // Aceita tanto sel.opts de uma cotação nova quanto opts de um registro antigo do histórico.
+    function optsLabels(o) {
+        o = o || {};
+        const dist = Math.max(0, parseFloat(o.distancia) || 0), ips = parseFloat(o.qtdIp) || 0, out = [];
+        const add = (cond, label) => { if (cond) out.push(label); };
+        add(o.shopping, 'Shopping Center');
+        add(o.aeroporto, 'Aeroporto');
+        add(o.industria, 'Indústria / Galpão');
+        add(o.datacenter, 'Datacenter');
+        add(o.rural, 'Zona rural' + (dist > 0 ? ` (${fmtNum(dist, 0)} m)` : ''));
+        add(o.foraUrbana, 'Fora da zona urbana');
+        add(o.cidPeq, 'Cidade pequena');
+        add(o.favela, 'Favela / fibra pública subterrânea');
+        add(o.fibraCurta, 'Fibra a menos de 500 m');
+        add(o.provedor, 'Provedores');
+        add(o.sla, 'SLA maior');
+        add(o.dupla, 'Dupla abordagem');
+        add(o.radio, 'Rádio homologado');
+        add(o.comodato, 'Equipamento em comodato');
+        add(o.mtu, 'BDL MTU 1500');
+        add(ips > 0, `IPs fixos (${fmtNum(ips, 0)})`);
+        return out;
+    }
+
+    // Assunto padrão do e-mail. Não cita a operadora (o e-mail vai para o cliente).
+    // parts: { prod, speed, uf, prazos[], dur }. Funciona com sel e com registros antigos do histórico.
+    function buildEmailSubject(parts) {
+        const p = parts || {};
+        const prazos = (p.prazos && p.prazos.length ? p.prazos : (p.dur ? [p.dur] : [])).slice().sort((a, b) => a - b);
+        const prazo = prazos.length ? prazos.join('/') + ' meses' : '';
+        return ['Cotação Sitelbra', [p.prod, p.speed ? speedLabel(p.speed) : ''].filter(Boolean).join(' '), p.uf, prazo].filter(Boolean).join(' | ');
+    }
+
     // Resumo interno (inclui operadora)
     function buildSummaryText(q) {
         const s = q.sel, d = q.display, car = characteristics(q);
@@ -292,7 +326,7 @@
     }
 
     const api = { fmtBRL, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
-        buildAiPayload, characteristics, TABELAS_FONTE, OPERADORAS_SEM_PLANILHA };
+        buildAiPayload, characteristics, optsLabels, buildEmailSubject, TABELAS_FONTE, OPERADORAS_SEM_PLANILHA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Quote = api;
 
