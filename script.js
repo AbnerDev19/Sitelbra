@@ -622,9 +622,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $('btnCopyExcel').addEventListener('click', async () => {
         const btn = $('btnCopyExcel');
         if (!lastQuote || !lastQuote.ok) return;
-        const linha = Quote.buildExcelRow(getSel(), { db: window.LPU_DB, Pricing: window.Pricing });
+        const { linha, estimados } = Quote.buildExcelData(getSel(), { db: window.LPU_DB, Pricing: window.Pricing });
         if (!linha) { toast('Sem valores para montar a linha.', 'err'); return; }
-        if (await copyText(linha)) { flash(btn, 'Linha copiada!'); toast('Linha copiada: cole numa célula do Excel.'); } else toast('Não foi possível copiar.', 'err');
+        if (await copyText(linha)) { flash(btn, 'Linha copiada!'); toast('Linha copiada: cole numa célula do Excel.' + (estimados.length ? ` Sem LPU, valor estimado em: ${estimados.join(', ')} meses.` : '')); } else toast('Não foi possível copiar.', 'err'); 
     });
     $('btnCopySubject').addEventListener('click', async () => { const v = $('emailSubject').value; if (!v) return; if (await copyText(v)) { flash($('btnCopySubject'), 'Assunto copiado!'); toast('Assunto copiado!'); } else toast('Não foi possível copiar.', 'err'); });
     $('btnMagicAI').addEventListener('click', callGeminiAI);

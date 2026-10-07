@@ -358,21 +358,43 @@
     // ---------- LINHA PARA O EXCEL ----------
     // Uma linha só, separada por TAB (cada valor cai numa célula ao colar no Excel):
     //   60 dias | mensal 12m | instalação 12m | mensal 24m | instalação 24m | ... | mensal 60m | instalação 60m
-    // Sempre os 5 prazos (12 a 60), com as mesmas opções da cotação. Prazo sem valor na LPU vira "-".
+    // Sempre os 5 prazos (12 a 60), com as mesmas opções da cotação. Prazo sem valor na LPU é estimado (ver estimarPrazo).
     // Valores com ou sem impostos conforme a visualização escolhida (sem = Clean; com/detalhado = com impostos).
     const PRAZOS_EXCEL = [12, 24, 36, 48, 60];
     const PRAZO_INSTALACAO = '60 dias';
-    function buildExcelRow(sel, ctx) {
-        const q = buildQuote(Object.assign({}, sel, { prazos: PRAZOS_EXCEL.slice() }), ctx);
-        if (!q.ok) return '';
-        const clean = sel.impostoMode === 'sem';
-        const cels = [PRAZO_INSTALACAO];
-        q.porPrazo.forEach(p => {
-            if (!p.ok) { cels.push('-', '-'); return; }
-            cels.push(fmtBRL(clean ? p.r.mensalClean : p.r.mensalFull), fmtInst(p.r.semInst, clean ? p.r.instalacaoClean : p.r.instalacaoFull));
-        });
-        return cels.join('\t');
+    // Queda média da mensalidade a cada 12 meses de contrato nas tabelas LPU (~5,6%). Só é usada quando há UM único prazo com valor.
+    const QUEDA_PADRAO = 0.056;
+    // Prazo sem valor na LPU é ESTIMADO, para a linha nunca ter célula vazia:
+    //   entre dois prazos com valor  -> interpolação linear (um prazo no meio = a média dos dois);
+    //   depois do último / antes do primeiro -> segue a tendência, mas só com METADE da queda por 12 meses (não despenca);
+    //   instalação -> igual à do prazo mais próximo (nas tabelas ela não varia com o prazo).
+    function estimarPrazo(known, d) {
+        const antes = known.filter(k => k.d < d), depois = known.filter(k => k.d > d);
+        const lo = antes[antes.length - 1], hi = depois[0];
+        if (lo && hi) { const t = (d - lo.d) / (hi.d - lo.d); return { m: lo.m + (hi.m - lo.m) * t, i: lo.i + (hi.i - lo.i) * t }; }
+        const quedaPor12 = (x, y) => Math.max(0, 1 - Math.pow(y.m / x.m, 12 / (y.d - x.d)));   // x = prazo menor, y = prazo maior
+        if (lo) {
+            const ant = antes[antes.length - 2], q = (ant ? quedaPor12(ant, lo) : QUEDA_PADRAO) / 2;
+            return { m: lo.m * Math.pow(1 - q, (d - lo.d) / 12), i: lo.i };
+        }
+        const prox = depois[1], q = (prox ? quedaPor12(hi, prox) : QUEDA_PADRAO) / 2;
+        return { m: hi.m / Math.pow(1 - q, (hi.d - d) / 12), i: hi.i };
     }
+    // -> { linha, estimados: [prazos estimados] } (linha vazia se a cotação principal não existir)
+    function buildExcelData(sel, ctx) {
+        const q = buildQuote(Object.assign({}, sel, { prazos: PRAZOS_EXCEL.slice() }), ctx);
+        if (!q.ok) return { linha: '', estimados: [] };
+        const clean = sel.impostoMode === 'sem', round = v => Math.round(v * 100) / 100;
+        const known = q.porPrazo.filter(p => p.ok).map(p => ({ d: p.dur, m: clean ? p.r.mensalClean : p.r.mensalFull, i: clean ? p.r.instalacaoClean : p.r.instalacaoFull, semInst: p.r.semInst }));
+        const semInst = known.every(k => k.semInst), cels = [PRAZO_INSTALACAO], estimados = [];
+        PRAZOS_EXCEL.forEach(d => {
+            let k = known.find(x => x.d === d);
+            if (!k) { k = estimarPrazo(known, d); estimados.push(d); }
+            cels.push(fmtBRL(round(k.m)), fmtInst(semInst, round(k.i)));
+        });
+        return { linha: cels.join('\t'), estimados };
+    }
+    const buildExcelRow = (sel, ctx) => buildExcelData(sel, ctx).linha;
 
     // ---------- ANÁLISE AUTOMÁTICA (sem IA) ----------
     // Mesmo tipo de observação da análise por IA, mas calculada aqui, só com os números da cotação.
@@ -412,7 +434,7 @@
         return out;
     }
 
-    const api = { fmtBRL, fmtInst, buildExcelRow, PRAZOS_EXCEL, SOB_CONSULTA, buildLocalAnalysis, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
+    const api = { fmtBRL, fmtInst, buildExcelRow, buildExcelData, PRAZOS_EXCEL, SOB_CONSULTA, buildLocalAnalysis, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
         buildAiPayload, characteristics, optsLabels, buildEmailSubject, TABELAS_FONTE, OPERADORAS_SEM_PLANILHA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Quote = api;

@@ -77,14 +77,24 @@ ok('análise automática não vazia', Q.buildLocalAnalysis(tefe).length >= 3);
 
 // ---- linha para o Excel
 {
-    const linha = Q.buildExcelRow({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 36, prazos: [36], opts: {}, impostoMode: 'sem' }, C).split('\t');
-    const q12 = Q.buildQuote({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 12, prazos: [12], opts: {}, impostoMode: 'sem' }, C);
-    ok('Excel: 1 + 5 prazos x 2 = 11 células', linha.length === 11 && linha[0] === '60 dias', linha.length);
-    ok('Excel: mensal 12 meses confere', linha[1] === Q.fmtBRL(q12.r.mensalClean) && /^R\$ [\d.]+,\d\d$/.test(linha[1]), linha[1]);
-    const com = Q.buildExcelRow({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 36, prazos: [36], opts: {}, impostoMode: 'com' }, C).split('\t');
-    ok('Excel: com impostos usa valor final', com[1] === Q.fmtBRL(q12.r.mensalFull));
-    const g2 = Q.buildExcelRow({ op: 'Claro', prod: 'IP DEDICADO', uf: 'DF', speed: 2000, dur: 24, prazos: [24], opts: {}, impostoMode: 'sem' }, C).split('\t');
-    ok('Excel: acima de 2G só 24 meses, resto "-"', g2[1] === '-' && g2[3] !== '-' && g2[4] === 'Sob consulta', g2.join('|'));
+    const sel = (o) => ({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 36, prazos: [36], opts: {}, impostoMode: 'sem', ...o });
+    const linha = Q.buildExcelRow(sel(), C).split('\t');
+    const q = d => Q.buildQuote(sel({ dur: d, prazos: [d] }), C);
+    ok('Excel: 1 + 5 prazos x 2 = 11 células, nenhuma vazia', linha.length === 11 && linha[0] === '60 dias' && linha.every(c => c && c !== '-'), linha.join('|'));
+    ok('Excel: mensal 12 meses confere', linha[1] === Q.fmtBRL(q(12).r.mensalClean));
+    // L2-MPLS não tem 48 meses: estimado = média do 36 e do 60
+    const media = (q(36).r.mensalClean + q(60).r.mensalClean) / 2;
+    ok('Excel: 48 meses = média de 36 e 60', linha[7] === Q.fmtBRL(Math.round(media * 100) / 100), linha[7] + ' vs ' + media);
+    ok('Excel: instalação igual nos prazos', new Set([1, 3, 5, 7, 9].map(i => linha[i + 1])).size === 1);
+    ok('Excel: estimados informados', JSON.stringify(Q.buildExcelData(sel(), C).estimados) === '[48]');
+    const bl = Q.buildExcelData(sel({ prod: 'BANDA LARGA' }), C), v = bl.linha.split('\t').filter((_, i) => i % 2 === 1).map(x => parseFloat(x.replace(/[^\d,]/g, '').replace(',', '.')));
+    ok('Excel: Banda Larga 48/60 estimados, abaixo do 36 mas só um pouco', JSON.stringify(bl.estimados) === '[48,60]' && v[3] < v[2] && v[4] < v[3] && v[3] > v[2] * 0.95, v.join(','));
+    const com = Q.buildExcelRow(sel({ impostoMode: 'com' }), C).split('\t');
+    ok('Excel: com impostos usa valor final', com[1] === Q.fmtBRL(q(12).r.mensalFull));
+    const g2 = Q.buildExcelData(sel({ prod: 'IP DEDICADO', speed: 2000, dur: 24, prazos: [24] }), C), c2 = g2.linha.split('\t');
+    ok('Excel: acima de 2G estima o resto, instalação sob consulta', g2.estimados.join() === '12,36,48,60' && c2.every(c => c && c !== '-') && c2[2] === 'Sob consulta', g2.linha);
+    const m = c2.filter((_, i) => i % 2 === 1).map(x => parseFloat(x.replace(/[^\d,]/g, '').replace(',', '.')));
+    ok('Excel: acima de 2G a mensal cai pouco a cada prazo', m[0] > m[1] && m[1] > m[2] && m[2] > m[3] && m[3] > m[4] && m[4] > m[1] * 0.9, m.join(','));
 }
 console.log(`${n} verificações,`, fails ? 'FALHAS: ' + fails : 'TODAS PASSARAM');
 process.exit(fails ? 1 : 0);
