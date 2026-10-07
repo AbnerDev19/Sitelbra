@@ -25,6 +25,10 @@
 
     const speedLabel = s => s >= 1000 ? (s / 1000) + ' Gbps' : s + ' Mbps';
 
+    // Instalação: a LPU acima de 2 Gbps não traz valor (item.semInst). Nesses casos mostra "Sob consulta", nunca R$ 0,00.
+    const SOB_CONSULTA = 'Sob consulta';
+    const fmtInst = (semInst, v) => semInst ? SOB_CONSULTA : fmtBRL(v);
+
     const fmtNum = (v, max = 1) => v.toLocaleString('pt-BR', { maximumFractionDigits: max });
 
     const fmtPct = p => (p >= 0 ? '+' : '−') + fmtNum(Math.abs(p), 1) + '%';
@@ -34,7 +38,7 @@
 
     // ---------- FATORES APLICADOS ----------
     // Lista apenas o que realmente entrou no cálculo (usa os fatores devolvidos por pricing.js).
-    function buildFactors(sel, r) {
+    function buildFactors(sel, r, regra) {
         const f = r.fatores, o = sel.opts, dist = Math.max(0, parseFloat(o.distancia) || 0);
         const out = [{ k: 'speed', label: speedLabel(sel.speed) }];
         sel.prazos.forEach(p => out.push({ k: 'prazo' + p, label: p + ' meses' }));
@@ -45,6 +49,7 @@
         add(f.H > 0, 'datacenter', 'Datacenter');
         add(!!o.rural, 'rural', 'Zona rural' + (dist > 0 ? ` (${fmtNum(dist, 0)} m)` : ''));
         add(f.B !== 1, 'fora_urbana', 'Fora da zona urbana');
+        add(f.Z !== 1 && !!regra, 'norte', regra ? `Cidade do Norte: ${regra.cidade} (LPU x${root.Cidades.fmtMult(regra.mult)})` : '');
         add(f.D !== 1, 'cid_peq', 'Cidade pequena');
         add(f.K > 0, 'favela', 'Favela / fibra pública subterrânea');
         add(!!o.fibraCurta && (dist > 0 || !!o.rural), 'fibra_curta', 'Fibra a menos de 500 m');
@@ -72,7 +77,7 @@
     // Refaz o passo a passo das MESMAS contas de pricing.js, mostrando o efeito de cada fator.
     // Se o total não fechar com computePricing, a composição é marcada como inconsistente
     // (a tela esconde o bloco em vez de mostrar números errados).
-    function buildComposition(item, sel, r, Pricing) {
+    function buildComposition(item, sel, r, Pricing, regra) {
         const f = r.fatores, op = sel.op;
         const qtdIp = Math.max(0, parseFloat(sel.opts.qtdIp) || 0);
         const dist = Math.max(0, parseFloat(sel.opts.distancia) || 0);
@@ -94,6 +99,7 @@
         // Mensalidade
         const m = []; let run = item.m.c;
         run = mult(m, run, 'Fora da zona urbana', f.B);
+        run = mult(m, run, regra ? `Cidade do Norte (${regra.cidade})` : 'Cidade do Norte', f.Z);
         run = mult(m, run, 'Indústria / Galpão', f.C);
         run = mult(m, run, 'Rádio homologado', f.O);
         run = mult(m, run, 'Cidade pequena', f.D);
@@ -118,7 +124,10 @@
 
         // Instalação
         const i = []; let ri;
-        if (sel.opts.rural) {
+        if (item.semInst) {
+            ri = 0;                       // LPU sem instalação: nada a compor
+            var instBase = 0;
+        } else if (sel.opts.rural) {
             ri = 0;
             ri = plus(i, ri, `Instalação por distância (${fmtNum(dist, 0)} m x 3,65)`, dist * 3.65);
             ri = plus(i, ri, 'Base de instalação rural', 500);
@@ -136,6 +145,7 @@
             ri = item.i.c;
             instBase = item.i.c;
             ri = mult(i, ri, 'Fora da zona urbana', f.B);
+            ri = mult(i, ri, regra ? `Cidade do Norte (${regra.cidade})` : 'Cidade do Norte', f.Z);
             ri = mult(i, ri, 'Cidade pequena', f.D);
             ri = mult(i, ri, 'Provedores', f.E);
             ri = mult(i, ri, 'Shopping Center', f.F);
@@ -147,7 +157,7 @@
             ri = plus(i, ri, `IPs fixos (${fmtNum(qtdIp, 0)})`, R.ipInst(qtdIp));
             ri = plus(i, ri, 'BDL MTU 1500', f.Q * 5);
         }
-        const inst = { base: instBase, rural: !!sel.opts.rural, steps: i, final: ri };
+        const inst = { base: instBase, rural: !item.semInst && !!sel.opts.rural, semInst: !!item.semInst, steps: i, final: ri };
 
         const consistente = Math.abs(run - r.mensalClean) < 0.005 && Math.abs(ri - r.instalacaoClean) < 0.005;
         return { mensal, inst, impostos: { taxM: r.taxM, taxI: r.taxI }, consistente };
@@ -168,6 +178,9 @@
         if (sel.opts.rural && !(parseFloat(sel.opts.distancia) > 0))
             reasons.push('Zona rural marcada sem distância informada. A instalação rural depende da distância.');
         extra.semPreco.forEach(p => reasons.push(`Sem valor na LPU para o prazo de ${p} meses.`));
+        if (r.semInst) reasons.push('A LPU acima de 2 Gbps não traz valor de instalação: confirme a instalação antes de ofertar.');
+        if (extra.regra && extra.regra.tipo !== 'inviavel' && !extra.regra.listada)
+            reasons.push(`"${extra.regra.cidade}" não está na lista de cidades do Norte: foi aplicada a regra das demais cidades${extra.regra.tipo === 'mult' ? ` (LPU x${root.Cidades.fmtMult(extra.regra.mult)})` : ''}. Confira o nome da cidade.`);
         return reasons.length
             ? { level: 'atencao', label: 'Atenção', reasons }
             : { level: 'viavel', label: 'Viável', reasons: ['Valores encontrados na LPU, sem pendências nas regras aplicadas.'] };
@@ -198,24 +211,33 @@
             }
             return { ok: false, motivo: 'incompleto', missing };
         }
+        // Cidades do Norte (AM, RO, AP, AC, RR, PA): a planilha de racional diz se a cidade é inviável ou tem multiplicador.
+        const regra = root.Cidades ? root.Cidades.regraNorte(sel.uf, sel.cidade, sel.speed) : null;
+        if (regra && regra.tipo === 'inviavel') {
+            return { ok: false, motivo: 'cidade_inviavel', missing: [], regra,
+                titulo: 'Inviável: cidade sem atendimento',
+                status: { level: 'inviavel', label: 'Inviável', reasons: [root.Cidades.descreverNorte(regra)] } };
+        }
+        const opts = regra && regra.mult > 1 ? Object.assign({}, sel.opts, { norteMult: regra.mult }) : sel.opts;
         const item = findItem(db, sel.op, sel.prod, sel.uf, sel.dur, sel.speed);
         if (!item) {
             return { ok: false, motivo: 'sem_lpu', missing: [],
                 status: { level: 'inviavel', label: 'Inviável', reasons: [`A LPU não tem ${sel.prod} ${speedLabel(sel.speed)} para ${sel.uf} com prazo de ${sel.dur} meses (${sel.op}).`] } };
         }
-        const r = Pricing.computePricing(item, sel.opts, sel.op);
+        const r = Pricing.computePricing(item, opts, sel.op);
         const porPrazo = sel.prazos.slice().sort((a, b) => a - b).map(d => {
             const it = findItem(db, sel.op, sel.prod, sel.uf, d, sel.speed);
-            return { dur: d, ok: !!it, r: it ? Pricing.computePricing(it, sel.opts, sel.op) : null };
+            return { dur: d, ok: !!it, r: it ? Pricing.computePricing(it, opts, sel.op) : null };
         });
-        const extra = { ignorados: buildIgnored(sel, r), semPreco: porPrazo.filter(p => !p.ok).map(p => p.dur) };
+        const extra = { ignorados: buildIgnored(sel, r), semPreco: porPrazo.filter(p => !p.ok).map(p => p.dur), regra };
         return {
-            ok: true, sel, item, r, porPrazo,
+            ok: true, sel, item, r, porPrazo, regra, semInst: !!item.semInst,
+            rede: root.Cidades ? root.Cidades.redePropria(sel.uf, sel.cidade) : null,
             display: displayValues(r, sel.impostoMode),
             status: evaluateStatus(sel, r, extra),
             ignorados: extra.ignorados,
-            factors: buildFactors(sel, r),
-            composition: buildComposition(item, sel, r, Pricing),
+            factors: buildFactors(sel, r, regra),
+            composition: buildComposition(item, sel, r, Pricing, regra),
             fonte: TABELAS_FONTE[sel.op] || null
         };
     }
@@ -224,10 +246,13 @@
     function compareOperators(sel, ctx) {
         const { db, Pricing } = ctx;
         const ops = [...new Set(db.map(i => i.o))].sort();
+        const regra = root.Cidades ? root.Cidades.regraNorte(sel.uf, sel.cidade, sel.speed) : null;
+        const opts = regra && regra.mult > 1 ? Object.assign({}, sel.opts, { norteMult: regra.mult }) : sel.opts;
         return ops.map(op => {
             const item = findItem(db, op, sel.prod, sel.uf, sel.dur, sel.speed);
+            if (regra && regra.tipo === 'inviavel') return { op, ok: false, cidadeInviavel: true };
             if (!item) return { op, ok: false };
-            const r = Pricing.computePricing(item, sel.opts, op);
+            const r = Pricing.computePricing(item, opts, op);
             return { op, ok: true, r, display: displayValues(r, sel.impostoMode), atual: op === sel.op };
         });
     }
@@ -279,12 +304,14 @@
             `Operadora: ${s.op}`,
             `Produto: ${s.prod}`,
             `UF: ${s.uf}`,
+            ...(String(s.cidade || '').trim() ? [`Cidade: ${String(s.cidade).trim()}`] : []),
+            ...(q.rede ? [`Rede própria Sitelbra: ${q.rede.tem ? 'Sim' + (q.rede.origem ? ' (' + q.rede.origem + ')' : '') : 'Não consta'}`] : []),
             `Velocidade: ${speedLabel(s.speed)}`,
             `Prazo: ${s.dur} meses`,
             `Mensalidade (${d.rotulo.toLowerCase()}): ${fmtBRL(d.mensal)}`,
-            `Instalação (${d.rotulo.toLowerCase()}): ${fmtBRL(d.inst)}`
+            `Instalação (${d.rotulo.toLowerCase()}): ${fmtInst(q.semInst, d.inst)}`
         ];
-        if (d.sub) linhas.push(`Mensalidade (sem impostos): ${fmtBRL(d.sub.mensal)}`, `Instalação (sem impostos): ${fmtBRL(d.sub.inst)}`);
+        if (d.sub) linhas.push(`Mensalidade (sem impostos): ${fmtBRL(d.sub.mensal)}`, `Instalação (sem impostos): ${fmtInst(q.semInst, d.sub.inst)}`);
         linhas.push(`Características adicionais: ${car.length ? car.join(', ') : 'Nenhuma'}`);
         return linhas.join('\n');
     }
@@ -295,9 +322,10 @@
         const blocos = q.porPrazo.map(p => {
             if (!p.ok) return `== Contrato de ${p.dur} meses ==\nValor indisponível para este prazo.`;
             const r = p.r;
-            return `== Contrato de ${p.dur} meses ==\n-- Valores Com Impostos --\nMensal: ${fmtBRL(r.mensalFull)}\nInstalação: ${fmtBRL(r.instalacaoFull)}\n\n-- Valores Clean (Ref.) --\nMensal s/impostos: ${fmtBRL(r.mensalClean)}\nInstalação s/impostos: ${fmtBRL(r.instalacaoClean)}`;
+            return `== Contrato de ${p.dur} meses ==\n-- Valores Com Impostos --\nMensal: ${fmtBRL(r.mensalFull)}\nInstalação: ${fmtInst(r.semInst, r.instalacaoFull)}\n\n-- Valores Clean (Ref.) --\nMensal s/impostos: ${fmtBRL(r.mensalClean)}\nInstalação s/impostos: ${fmtInst(r.semInst, r.instalacaoClean)}`;
         });
-        return `Olá, tudo bem?\n\nSegue abaixo a cotação conforme solicitado. Validade de 30 dias.\n\nProduto: ${s.prod} ${speedLabel(s.speed)} (${s.uf})\n\n${blocos.join('\n\n')}\n\nPrazo de instalação: 60 Dias\n\nFicamos à disposição.\n\nAtenciosamente,`;
+        const local = String(s.cidade || '').trim() ? `${String(s.cidade).trim()}/${s.uf}` : s.uf;
+        return `Olá, tudo bem?\n\nSegue abaixo a cotação conforme solicitado. Validade de 30 dias.\n\nProduto: ${s.prod} ${speedLabel(s.speed)} (${local})\n\n${blocos.join('\n\n')}\n\nPrazo de instalação: 60 Dias\n\nFicamos à disposição.\n\nAtenciosamente,`;
     }
 
     // Dados enviados à IA: somente fatos calculados (nada inventado)
@@ -305,16 +333,18 @@
         const s = q.sel, d = q.display, c = q.composition;
         const passos = steps => steps.map(p => ({ fator: p.label, efeito: p.tipo === 'add' ? fmtBRL(p.valor) : fmtPct(p.pct) }));
         return {
-            produto: s.prod, uf: s.uf, velocidade: speedLabel(s.speed),
+            produto: s.prod, uf: s.uf, cidade: String(s.cidade || '').trim() || null, velocidade: speedLabel(s.speed),
+            cidade_do_norte: q.regra ? { cidade: q.regra.cidade, na_lista: q.regra.listada, regra: q.regra.tipo === 'mult' ? 'LPU x' + root.Cidades.fmtMult(q.regra.mult) : 'LPU normal', faixa_de_velocidade: q.regra.faixa } : null,
+            rede_propria_sitelbra: q.rede ? (q.rede.tem ? 'sim' : 'não consta na lista') : null,
             prazos_meses: s.prazos.slice().sort((a, b) => a - b), prazo_principal_meses: s.dur,
             operadora: s.op,
             valores: {
                 base: d.rotulo,
-                mensalidade: fmtBRL(d.mensal), instalacao: fmtBRL(d.inst),
-                mensalidade_sem_impostos: fmtBRL(q.r.mensalClean), instalacao_sem_impostos: fmtBRL(q.r.instalacaoClean),
-                instalacao_dividida_pela_mensalidade: q.r.mensalClean > 0 ? Number((q.r.instalacaoClean / q.r.mensalClean).toFixed(2)) : null,
+                mensalidade: fmtBRL(d.mensal), instalacao: fmtInst(q.semInst, d.inst),
+                mensalidade_sem_impostos: fmtBRL(q.r.mensalClean), instalacao_sem_impostos: fmtInst(q.semInst, q.r.instalacaoClean),
+                instalacao_dividida_pela_mensalidade: !q.semInst && q.r.mensalClean > 0 ? Number((q.r.instalacaoClean / q.r.mensalClean).toFixed(2)) : null,
                 lpu_base_mensal: fmtBRL(c.mensal.base),
-                lpu_base_instalacao: c.inst.rural ? null : fmtBRL(c.inst.base)
+                lpu_base_instalacao: c.inst.rural || q.semInst ? null : fmtBRL(c.inst.base)
             },
             fatores_aplicados: characteristics(q),
             composicao_mensal: passos(c.mensal.steps),
@@ -325,7 +355,45 @@
         };
     }
 
-    const api = { fmtBRL, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
+    // ---------- ANÁLISE AUTOMÁTICA (sem IA) ----------
+    // Mesmo tipo de observação da análise por IA, mas calculada aqui, só com os números da cotação.
+    // Serve quando a IA não está configurada ou não responde: a aba "Análise IA" nunca fica vazia.
+    function buildLocalAnalysis(q) {
+        const out = [], c = q.composition, r = q.r, s = q.sel;
+        // 1) instalação x mensalidade
+        if (q.semInst) out.push('A LPU acima de 2 Gbps não tem valor de instalação. Peça o valor de instalação à operadora antes de ofertar.');
+        else if (r.mensalClean > 0) {
+            const x = r.instalacaoClean / r.mensalClean;
+            out.push(`A instalação (${fmtBRL(r.instalacaoClean)}) equivale a ${fmtNum(x, 1)} mensalidades (${fmtBRL(r.mensalClean)}), valores sem impostos.` +
+                (x >= 6 ? ' É um peso alto: vale conferir se o prazo maior dilui esse custo.' : x <= 1.5 ? ' É um peso baixo em relação à mensalidade.' : ''));
+        }
+        // 2) fatores de maior impacto
+        if (c.consistente) {
+            const imp = c.mensal.steps.filter(p => p.tipo !== 'faixa').map(p => ({ label: p.label, delta: p.delta })).filter(p => p.delta > 0.005).sort((a, b) => b.delta - a.delta).slice(0, 3);
+            if (imp.length) out.push('Maiores acréscimos na mensalidade: ' + imp.map(p => `${p.label} (+${fmtBRL(p.delta)})`).join('; ') + '.');
+            const faixa = c.mensal.steps.find(p => p.tipo === 'faixa');
+            if (faixa) out.push(`A faixa de volume reduziu a mensalidade em ${fmtBRL(Math.abs(faixa.delta))} (${faixa.label.toLowerCase()}).`);
+            if (c.inst.rural) out.push('Instalação de zona rural: o valor depende da distância informada. Confirme a metragem com o cliente.');
+        }
+        // 3) cidade
+        if (q.regra && q.regra.tipo === 'mult') out.push(`Cidade do Norte: ${q.regra.cidade} tem multiplicador x${root.Cidades.fmtMult(q.regra.mult)} sobre a LPU (${q.regra.faixa}). Isso já está no valor.`);
+        if (q.rede && q.rede.tem) out.push(`Há rede própria Sitelbra em ${q.rede.nome}${q.rede.origem ? ' (' + q.rede.origem + ')' : ''}: veja na aba Rede própria se atende o endereço antes de comprar de terceiros.`);
+        // 4) prazo
+        const ok = q.porPrazo.filter(p => p.ok);
+        if (ok.length >= 2) {
+            const a = ok[0], b = ok[ok.length - 1];
+            if (a.r.mensalClean > 0 && a.r.mensalClean !== b.r.mensalClean) {
+                const dif = (b.r.mensalClean / a.r.mensalClean - 1) * 100;
+                out.push(`Entre ${a.dur} e ${b.dur} meses a mensalidade vai de ${fmtBRL(a.r.mensalClean)} para ${fmtBRL(b.r.mensalClean)} (${fmtPct(dif)}).`);
+            }
+        } else if (ok.length === 1) out.push('Só um prazo está sendo cotado. Marque outros prazos para comparar o efeito na mensalidade.');
+        // 5) status
+        out.push(q.status.level === 'viavel' ? 'Status Viável: há valor na LPU e nenhuma pendência nas regras aplicadas.'
+            : `Status ${q.status.label}: ` + q.status.reasons.join(' '));
+        return out;
+    }
+
+    const api = { fmtBRL, fmtInst, SOB_CONSULTA, buildLocalAnalysis, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
         buildAiPayload, characteristics, optsLabels, buildEmailSubject, TABELAS_FONTE, OPERADORAS_SEM_PLANILHA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Quote = api;

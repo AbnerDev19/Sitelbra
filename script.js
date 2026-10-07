@@ -13,6 +13,7 @@ const SP_KEY = { fora_urbana: 'foraUrbana', cid_peq: 'cidPeq', favela: 'favela',
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = v => Quote.fmtBRL(v);
+const moneyInst = (semInst, v) => Quote.fmtInst(semInst, v);   // "Sob consulta" quando a LPU não traz instalação (acima de 2 Gbps)
 
 // --- ÍCONES (SVG inline, sem dependência externa) ---
 const ICONS = {
@@ -43,7 +44,7 @@ let lastQuote = null, lastSig = '', liveText = '', dirty = false, activeTab = 'p
 
 function getSel() {
     return {
-        op: $('selOperadora').value, prod: $('selProduto').value, uf: $('selUF').value,
+        op: $('selOperadora').value, prod: $('selProduto').value, uf: $('selUF').value, cidade: getCidade(),
         speed: parseFloat($('selVelocidade').value) || 0,
         dur: parseInt($('selPrazo').value) || 36,
         prazos: [...prazosSelecionados], opts: readOptions(),
@@ -157,8 +158,51 @@ function renderVisualUF() {
         : '<small>Escolha operadora e produto para colorir os estados pelo preço.</small>';
 }
 function selectVisualUF(uf) {
+    if ($('selUF').value !== uf) $('inputCidade').value = '';   // as cidades são de cada UF
     $('selUF').value = uf; clearErr('uf');
     updateSpeeds(); calculate();
+}
+
+// --- CIDADE (rede própria + regras do Norte) ---
+function getCidade() { const el = $('inputCidade'); return el ? el.value.trim() : ''; }
+function cidadeNaLista(uf, v) { const n = Cidades.norm(v); return !!n && Cidades.listaUF(uf).some(x => Cidades.norm(x) === n); }
+function renderCityBox() {
+    const uf = $('selUF').value, box = $('cityBox');
+    box.hidden = !uf;
+    if (!uf) { $('cityInfo').innerHTML = ''; return; }
+    $('cidadesList').innerHTML = Cidades.listaUF(uf).map(n => `<option value="${esc(n)}"></option>`).join('');
+    renderCityInfo();
+}
+function renderCityInfo() {
+    const uf = $('selUF').value, cidade = getCidade(), box = $('cityInfo');
+    if (!uf) { box.innerHTML = ''; return; }
+    const norte = Cidades.ehNorte(uf);
+    if (!cidade) {
+        box.innerHTML = `<p class="city-note">${norte ? `${esc(uf)} tem regra por cidade (multiplicador ou inviabilidade). Informe a cidade para conferir e aplicar na cotação.` : 'Informe a cidade para ver se há rede própria Sitelbra.'}</p>`;
+        return;
+    }
+    const rede = Cidades.redePropria(uf, cidade);
+    let h = rede.tem
+        ? `<div class="city-line ok"><b>Rede própria Sitelbra</b><span>${esc(rede.nome)}${rede.origem ? ' | ' + esc(rede.origem) : ''}</span></div>`
+        : `<div class="city-line none"><b>Sem rede própria</b><span>${esc(cidade)} não consta na lista de cidades atendidas.</span></div>` +
+          (rede.parecidas.length ? `<p class="city-note">Com rede própria, parecidas: ${rede.parecidas.map(esc).join(', ')}.</p>` : '');
+    if (norte) {
+        const speed = parseFloat($('selVelocidade').value) || 0;
+        const alta = Cidades.regraNorte(uf, cidade, Cidades.CORTE_MBPS + 1), baixa = Cidades.regraNorte(uf, cidade, Cidades.CORTE_MBPS);
+        if (alta && baixa) {
+            const aplica = !speed ? '' : speed > Cidades.CORTE_MBPS ? 'alta' : 'baixa';
+            const cls = r => r.tipo === 'inviavel' ? 'bad' : r.tipo === 'mult' ? 'warn' : 'ok';
+            const linha = (k, r, txt) => `<div class="city-line ${cls(r)}${aplica === k ? ' aplica' : ''}"><b>${txt}</b><span>${esc(r.curto)}</span></div>`;
+            h += `<div class="city-norte"><div class="city-sub">${alta.listada ? 'Regra do Norte' : 'Fora da lista do Norte: regra das demais cidades'}</div>` +
+                linha('alta', alta, `Acima de ${Cidades.CORTE_MBPS} Mb`) + linha('baixa', baixa, `Até ${Cidades.CORTE_MBPS} Mb`) +
+                `<p class="city-note">${aplica ? 'A linha destacada é a que vale para a velocidade escolhida.' : 'Escolha a velocidade para aplicar a regra na cotação.'}</p></div>`;
+            if (!alta.listada) {
+                const par = Cidades.parecidas(uf, cidade, 4);
+                if (par.length) h += `<p class="city-note">Você quis dizer: ${par.map(esc).join(', ')}?</p>`;
+            }
+        }
+    }
+    box.innerHTML = h;
 }
 
 function renderPrazoButtons() {
@@ -181,7 +225,7 @@ function renderPrazoButtons() {
 }
 
 function updateSpeeds() {
-    renderVisualUF();
+    renderVisualUF(); renderCityBox();
     const op = $('selOperadora').value, prod = $('selProduto').value, uf = $('selUF').value, dur = parseInt($('selPrazo').value) || 36;
     const c = $('visualSpeedGrid'), hidden = $('selVelocidade'); c.innerHTML = '';
     const has = !!(op && prod && uf);
@@ -190,6 +234,14 @@ function updateSpeeds() {
     if (!avail.size) { c.innerHTML = `<div class="speed-hint">Sem velocidades na LPU para ${esc(prod)} em ${esc(uf)} com ${dur} meses.</div>`; }
     (window.VELOCIDADES_DISPONIVEIS || []).filter(s => avail.has(s)).forEach(s =>
         c.appendChild(chip(Quote.speedLabel(s), { pressed: parseInt(hidden.value) === s, onclick: () => { hidden.value = s; clearErr('speed'); updateSpeeds(); calculate(); } })));
+    // Velocidades que existem na LPU, mas não para o prazo principal (ex.: acima de 2 Gbps só tem 24 meses)
+    const outras = [...new Set(window.LPU_DB.filter(i => i.o == op && i.p == prod && i.u == uf && !avail.has(i.s)).map(i => i.s))].sort((a, b) => a - b);
+    if (avail.size && outras.length) {
+        const prazosOutros = [...new Set(window.LPU_DB.filter(i => i.o == op && i.p == prod && i.u == uf && outras.includes(i.s)).map(i => i.d))].sort((a, b) => a - b);
+        const h = document.createElement('div'); h.className = 'speed-hint';
+        h.textContent = `${Quote.speedLabel(outras[0])} a ${Quote.speedLabel(outras[outras.length - 1])} só existem na LPU para ${prazosOutros.join('/')} meses. Marque esse prazo como principal para ver.`;
+        c.appendChild(h);
+    }
     if (hidden.value && !avail.has(parseInt(hidden.value))) hidden.value = '';
 }
 
@@ -211,7 +263,20 @@ function renderOptions() {
 }
 function updateAdvSummary() {
     const n = document.querySelectorAll('#advDetails input[type=checkbox]:checked').length;
+    $('advCount').textContent = n ? `${n} ${n === 1 ? 'parâmetro marcado' : 'parâmetros marcados'}` : 'Nenhum parâmetro marcado';
+    $('btnClearAdv').disabled = !n;
     $('advSummary').textContent = n ? `${n} ${n === 1 ? 'opção ativa' : 'opções ativas'}` : 'SLA, dupla abordagem, IPs, MTU, local e outras regras';
+}
+
+// Limpa tudo o que foi marcado em "Análise avançada" (local, projetos especiais, condições do circuito, IPs, distância).
+// Não mexe em operadora, UF, cidade, produto, velocidade e prazo.
+function clearAdvanced() {
+    document.querySelectorAll('#advDetails input[type=checkbox]').forEach(c => { c.checked = false; });
+    $('inputDistancia').value = ''; $('inputDistancia').classList.remove('bad'); $('errDist').textContent = ''; $('ruralOptions').hidden = true;
+    const ip = $('val_ips'); if (ip) { ip.value = ''; ip.hidden = true; ip.classList.remove('bad'); }
+    if (window.lastLocal) window.lastLocal.aplicados = [];
+    updateAdvSummary(); calculate();
+    toast('Parâmetros do circuito limpos.');
 }
 
 // --- VALIDAÇÃO ---
@@ -245,10 +310,10 @@ function renderResult() {
     const empty = $('resEmpty'), content = $('resContent'), details = $('details');
     if (!q.ok) {
         content.hidden = true; details.classList.add('noq'); empty.hidden = false;
-        const inv = q.motivo === 'sem_lpu';
+        const inv = !!(q.status && q.status.level === 'inviavel');
         empty.classList.toggle('bad', inv);
         empty.querySelector('.empty-ic').innerHTML = ic(inv ? 'xc' : 'bolt', 'ic');
-        empty.querySelector('h3').textContent = inv ? 'Inviável: sem preço na LPU' : 'Sua cotação aparece aqui';
+        empty.querySelector('h3').textContent = inv ? (q.titulo || 'Inviável: sem preço na LPU') : 'Sua cotação aparece aqui';
         $('emptyMsg').textContent = inv ? q.status.reasons[0] : 'Escolha operadora, produto, UF e velocidade. O prazo já vem marcado em 36 meses.';
         $('emptyList').innerHTML = inv ? '' : q.missing.map(m => `<li>Falta: ${esc(m)}</li>`).join('');
         if (activeTab === 'comparar') renderCompare();
@@ -264,11 +329,11 @@ function renderResult() {
     $('viab').style.setProperty('--st', s.level);
 
     $('resMensal').textContent = money(d.mensal);
-    $('resInstalacao').textContent = money(d.inst);
+    $('resInstalacao').textContent = moneyInst(q.semInst, d.inst);
     const notaI = sel.opts.rural ? ' | Instalação zona rural' : '';
     $('resMensalObs').textContent = (d.sub ? `${d.rotulo} | ${d.sub.rotulo}: ${money(d.sub.mensal)}` : d.rotulo) + d.nota;
-    $('resInstalacaoObs').textContent = (d.sub ? `${d.rotulo} | ${d.sub.rotulo}: ${money(d.sub.inst)}` : d.rotulo) + notaI;
-    $('metaLine').innerHTML = [['Prazo', `${sel.dur} meses`], ['Velocidade', Quote.speedLabel(sel.speed)], ['Operadora', sel.op], ['Produto', sel.prod], ['UF', sel.uf]]
+    $('resInstalacaoObs').textContent = q.semInst ? 'A LPU acima de 2 Gbps não traz instalação' : (d.sub ? `${d.rotulo} | ${d.sub.rotulo}: ${money(d.sub.inst)}` : d.rotulo) + notaI;
+    $('metaLine').innerHTML = [['Prazo', `${sel.dur} meses`], ['Velocidade', Quote.speedLabel(sel.speed)], ['Operadora', sel.op], ['Produto', sel.prod], sel.cidade ? ['Cidade/UF', `${sel.cidade}/${sel.uf}`] : ['UF', sel.uf]]
         .map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('');
 
     renderPrazos(q);
@@ -278,14 +343,13 @@ function renderResult() {
     ig.textContent = q.ignorados.length ? `Marcado, mas sem efeito no preço: ${q.ignorados.join(', ')}.` : '';
     renderDados(q); renderResumo(q);
 
-    const sig = JSON.stringify([sel.op, sel.prod, sel.uf, sel.speed, sel.prazos, sel.opts]);
+    const sig = JSON.stringify([sel.op, sel.prod, sel.uf, sel.cidade, sel.speed, sel.prazos, sel.opts]);
     if (sig !== lastSig) {
         lastSig = sig;
         liveText = Quote.buildCommercialText(q);
         $('emailTemplate').value = liveText; dirty = false;
         $('emailSubject').value = Quote.buildEmailSubject(sel);
-        $('iaBody').className = 'ia-empty';
-        $('iaBody').textContent = 'Gere observações sobre instalação, fatores de maior impacto e prazo, usando apenas os dados desta cotação.';
+        renderAutoAnalysis(q);
         document.querySelectorAll('.m-v, .viab').forEach(el => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
     }
     if (activeTab === 'comparar') renderCompare();
@@ -293,6 +357,7 @@ function renderResult() {
 }
 
 const valsByMode = (r, mode) => mode === 'sem' ? [r.mensalClean, r.instalacaoClean] : [r.mensalFull, r.instalacaoFull];
+const instCell = (r, v) => moneyInst(r.semInst, v);
 
 function renderPrazos(q) {
     const box = $('prazosTable');
@@ -301,7 +366,7 @@ function renderPrazos(q) {
     const mode = q.sel.impostoMode;
     box.innerHTML = `<div class="table-wrap"><table class="tbl"><thead><tr><th>Prazo</th><th class="n">Mensalidade</th><th class="n">Instalação</th></tr></thead><tbody>` +
         q.porPrazo.map(p => { if (!p.ok) return `<tr><td>${p.dur} meses</td><td class="n na" colspan="2">Sem valor na LPU</td></tr>`; const [m, i] = valsByMode(p.r, mode);
-            return `<tr class="${p.dur === q.sel.dur ? 'cur' : ''}"><td>${p.dur} meses${p.dur === q.sel.dur ? '<span class="tag">principal</span>' : ''}</td><td class="n">${money(m)}</td><td class="n">${money(i)}</td></tr>`; }).join('') + '</tbody></table></div>';
+            return `<tr class="${p.dur === q.sel.dur ? 'cur' : ''}"><td>${p.dur} meses${p.dur === q.sel.dur ? '<span class="tag">principal</span>' : ''}</td><td class="n">${money(m)}</td><td class="n">${instCell(p.r, i)}</td></tr>`; }).join('') + '</tbody></table></div>';
 }
 
 function stepVal(p) { return p.tipo === 'add' ? `<span class="v pos">+ ${money(p.valor)}</span>` : `<span class="v ${p.pct < 0 ? 'neg' : 'pos'}">${Quote.fmtPct(p.pct)}</span>`; }
@@ -320,19 +385,23 @@ function renderComposition(q) {
         return h;
     };
     box.innerHTML = block('Mensalidade (sem impostos)', c.mensal, 'LPU base', 'Mensalidade final', q.r.mensalFull, c.impostos.taxM) +
-        block('Instalação (sem impostos)', c.inst, c.inst.rural ? '' : 'LPU base', 'Instalação final', q.r.instalacaoFull, c.impostos.taxI);
+        (c.inst.semInst ? `<div class="compo-sub">Instalação</div><div class="compo-row"><span>A LPU acima de 2 Gbps não traz valor de instalação</span><span class="v">${Quote.SOB_CONSULTA}</span></div>`
+            : block('Instalação (sem impostos)', c.inst, c.inst.rural ? '' : 'LPU base', 'Instalação final', q.r.instalacaoFull, c.impostos.taxI));
 
     const rows = (titulo, bloco, base) => `<div class="compo-sub">${titulo}</div>` +
         (base !== null ? `<div class="compo-row"><span class="lbl-w">LPU base</span><span class="v">${money(base)}</span></div>` : '') +
         bloco.steps.map(p => `<div class="compo-row"><span class="lbl-w"><span>${esc(p.label)}</span><span class="t">${p.tipo === 'add' ? 'soma' : p.tipo === 'faixa' ? 'faixa aplicada ao total' : 'multiplica'} | subtotal ${money(p.total)}</span></span>${stepVal(p)}</div>`).join('');
     const f = q.r.fatores;
-    det.innerHTML = rows('Mensalidade: passo a passo', c.mensal, c.mensal.base) + rows('Instalação: passo a passo', c.inst, c.inst.rural ? null : c.inst.base) +
-        `<div class="compo-sub">Impostos</div><p class="note" style="margin-top:0">Razão da própria linha da LPU (com impostos ÷ sem impostos): mensalidade x${Quote.fmtNum(c.impostos.taxM, 4)}, instalação x${Quote.fmtNum(c.impostos.taxI, 4)}.</p>`;
+    det.innerHTML = rows('Mensalidade: passo a passo', c.mensal, c.mensal.base) + (c.inst.semInst ? '' : rows('Instalação: passo a passo', c.inst, c.inst.rural ? null : c.inst.base)) +
+        `<div class="compo-sub">Impostos</div><p class="note" style="margin-top:0">Razão da própria linha da LPU (com impostos ÷ sem impostos): mensalidade x${Quote.fmtNum(c.impostos.taxM, 4)}${c.inst.semInst ? '' : `, instalação x${Quote.fmtNum(c.impostos.taxI, 4)}`}.</p>`;
 }
 
 function renderDados(q) {
     const regras = Quote.characteristics(q);
     const linhas = [
+        ...(q.sel.cidade ? [['Cidade', `${q.sel.cidade}/${q.sel.uf}`]] : []),
+        ...(q.rede ? [['Rede própria Sitelbra', q.rede.tem ? `Sim${q.rede.origem ? ' (' + q.rede.origem + ')' : ''}` : 'Não consta na lista de cidades']] : []),
+        ...(q.regra ? [['Regra do Norte', `${q.regra.cidade}: ${q.regra.tipo === 'mult' ? 'LPU x' + Cidades.fmtMult(q.regra.mult) : 'LPU normal'} (${q.regra.faixa})`]] : []),
         ['Data da cotação', new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })],
         ['Tabela utilizada', q.fonte || 'Sem planilha de referência no projeto'],
         ['Regras aplicadas', regras.length ? `${regras.length}: ${regras.join(', ')}` : 'Nenhuma além da LPU'],
@@ -344,9 +413,10 @@ function renderDados(q) {
 
 function summaryRows(q) {
     const d = q.display, car = Quote.characteristics(q);
-    const rows = [['Operadora', q.sel.op], ['Produto', q.sel.prod], ['UF', q.sel.uf], ['Velocidade', Quote.speedLabel(q.sel.speed)], ['Prazo', `${q.sel.dur} meses`],
-        [`Mensalidade (${d.rotulo.toLowerCase()})`, money(d.mensal)], [`Instalação (${d.rotulo.toLowerCase()})`, money(d.inst)]];
-    if (d.sub) rows.push(['Mensalidade (sem impostos)', money(d.sub.mensal)], ['Instalação (sem impostos)', money(d.sub.inst)]);
+    const rows = [['Operadora', q.sel.op], ['Produto', q.sel.prod], ['UF', q.sel.uf], ...(q.sel.cidade ? [['Cidade', q.sel.cidade]] : []), ...(q.rede ? [['Rede própria Sitelbra', q.rede.tem ? 'Sim' : 'Não consta']] : []),
+        ['Velocidade', Quote.speedLabel(q.sel.speed)], ['Prazo', `${q.sel.dur} meses`],
+        [`Mensalidade (${d.rotulo.toLowerCase()})`, money(d.mensal)], [`Instalação (${d.rotulo.toLowerCase()})`, moneyInst(q.semInst, d.inst)]];
+    if (d.sub) rows.push(['Mensalidade (sem impostos)', money(d.sub.mensal)], ['Instalação (sem impostos)', moneyInst(q.semInst, d.sub.inst)]);
     rows.push(['Características adicionais', car.length ? car.join(', ') : 'Nenhuma']);
     return rows;
 }
@@ -363,8 +433,8 @@ function renderCompare() {
     note.textContent = `${sel.prod} ${Quote.speedLabel(sel.speed)} em ${sel.uf}, ${sel.dur} meses, valores ${mode === 'ambos' ? 'com impostos' : lbl}, com as mesmas opções avançadas. Ordem alfabética, sem classificação.`;
     tbl.innerHTML = `<thead><tr><th>Operadora</th><th class="n">Mensalidade</th><th class="n">Instalação</th><th>Prazo</th></tr></thead><tbody>` +
         rows.map(r => r.ok
-            ? `<tr class="${r.atual ? 'cur' : ''}"><td>${esc(r.op)}${r.atual ? '<span class="tag">selecionada</span>' : ''}</td><td class="n">${money(r.display.mensal)}</td><td class="n">${money(r.display.inst)}</td><td>${sel.dur} meses</td></tr>`
-            : `<tr><td>${esc(r.op)}</td><td class="n na" colspan="2">Sem preço na LPU</td><td>${sel.dur} meses</td></tr>`).join('') + '</tbody>';
+            ? `<tr class="${r.atual ? 'cur' : ''}"><td>${esc(r.op)}${r.atual ? '<span class="tag">selecionada</span>' : ''}</td><td class="n">${money(r.display.mensal)}</td><td class="n">${moneyInst(r.r.semInst, r.display.inst)}</td><td>${sel.dur} meses</td></tr>`
+            : `<tr><td>${esc(r.op)}</td><td class="n na" colspan="2">${r.cidadeInviavel ? 'Inviável na cidade informada' : 'Sem preço na LPU'}</td><td>${sel.dur} meses</td></tr>`).join('') + '</tbody>';
 }
 // Abas do painel de resultado
 function activateTab(name, focus) {
@@ -379,8 +449,9 @@ function fmtDate(iso) { try { return new Date(iso).toLocaleString('pt-BR', { dat
 function saveToHistory(q) {
     const s = q.sel, d = q.display;
     const assunto = $('emailSubject').value.trim() || Quote.buildEmailSubject(s);
-    const list = Historico.add({ op: s.op, prod: s.prod, uf: s.uf, speed: s.speed, prazos: s.prazos, dur: s.dur, opts: s.opts, impostoMode: s.impostoMode, mensal: d.mensal, inst: d.inst, rotulo: d.rotulo,
-        assunto, adicionais: Quote.optsLabels(s.opts), local: window.lastLocal || null });
+    const adicionais = Quote.optsLabels(s.opts).concat(q.factors.filter(f => f.k === 'norte').map(f => f.label));
+    const list = Historico.add({ op: s.op, prod: s.prod, uf: s.uf, cidade: s.cidade || '', speed: s.speed, prazos: s.prazos, dur: s.dur, opts: s.opts, impostoMode: s.impostoMode, mensal: d.mensal, inst: d.inst, semInst: !!q.semInst, rotulo: d.rotulo,
+        assunto, adicionais, local: window.lastLocal || null });
     renderHistory(); return !!list;
 }
 function histAdicionais(e) {
@@ -394,18 +465,18 @@ function renderHistory() {
     $('btnClearHist').hidden = !list.length;
     if (!list.length) { box.innerHTML = '<div class="hist-empty"><strong>Nenhuma cotação salva ainda.</strong><br>Cada vez que você usar "Calcular cotação", ela é registrada aqui, neste navegador.</div>'; return; }
     box.innerHTML = list.map(e => `<article class="hist-item" data-id="${esc(e.id)}">
-        <div class="hist-top"><span title="Data e hora em que foi salvo">Salvo em ${esc(fmtDate(e.data))}</span><span>${esc(e.uf)} | ${esc(e.dur)} meses</span></div>
+        <div class="hist-top"><span title="Data e hora em que foi salvo">Salvo em ${esc(fmtDate(e.data))}</span><span>${esc(e.cidade ? e.cidade + '/' + e.uf : e.uf)} | ${esc(e.dur)} meses</span></div>
         <div class="hist-subject">${esc(e.assunto || Quote.buildEmailSubject(e))}</div>
         <div class="hist-title">${esc(e.op)} | ${esc(e.prod)} | ${esc(Quote.speedLabel(e.speed))}</div>
         ${histAdicionais(e)}
-        <div class="hist-vals"><span>Mensalidade<b>${money(e.mensal)}</b></span><span>Instalação<b>${money(e.inst)}</b></span><span>${esc(e.rotulo || '')}</span></div>
+        <div class="hist-vals"><span>Mensalidade<b>${money(e.mensal)}</b></span><span>Instalação<b>${moneyInst(e.semInst, e.inst)}</b></span><span>${esc(e.rotulo || '')}</span></div>
         <div class="hist-act"><button type="button" class="btn secondary sm" data-act="open">${ic('open')}Abrir</button><button type="button" class="btn ghost sm" data-act="dup">${ic('copy')}Duplicar</button><button type="button" class="btn ghost sm" data-act="del">${ic('trash')}Excluir</button></div></article>`).join('');
 }
 function openEntry(e) {
     if (!window.LPU_DB.some(i => i.o === e.op)) { toast('Essa operadora não existe mais nas tabelas.', 'err'); return; }
     prazosSelecionados = (e.prazos && e.prazos.length ? e.prazos : [e.dur]).filter(p => PRAZOS_DISPONIVEIS.includes(p));
     if (!prazosSelecionados.length) prazosSelecionados = [...PRAZOS_INICIAIS];
-    $('selOperadora').value = e.op; $('selProduto').value = e.prod; $('selUF').value = e.uf; $('selVelocidade').value = e.speed;
+    $('selOperadora').value = e.op; $('selProduto').value = e.prod; $('selUF').value = e.uf; $('selVelocidade').value = e.speed; $('inputCidade').value = e.cidade || '';
     setImposto(e.impostoMode || 'sem', true);
     renderPrazoButtons(); renderOperators(); updateProducts(); renderVisualUF(); updateSpeeds(); setOptions(e.opts);
     if (Object.values(e.opts || {}).some(Boolean)) setAdv(true);
@@ -454,14 +525,20 @@ async function callGeminiAI() {
         $('emailTemplate').value = out; dirty = true; toast('Texto melhorado. Revise antes de enviar.');
     } catch (e) { $('errTexto').textContent = e.message; toast(e.message, 'err'); } finally { busy(btn, false); }
 }
+// Análise feita pelo próprio sistema (Quote.buildLocalAnalysis): aparece sempre, com ou sem IA.
+function renderAutoAnalysis(q, aviso) {
+    const box = $('iaBody'), itens = Quote.buildLocalAnalysis(q);
+    box.className = '';
+    box.innerHTML = `<ul class="ia-out">${itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p class="ia-note">Análise automática do sistema, só com os números desta cotação. Não altera valores.${aviso ? ' ' + esc(aviso) : ''}</p>`;
+}
 async function analyzeAI() {
     const q = lastQuote; if (!q || !q.ok) return;
     const btn = $('btnAnalyze'), box = $('iaBody'); busy(btn, true);
     try {
         const out = await AI.analisar(Quote.buildAiPayload(q, ''));
         const itens = out.split(/\n+/).map(l => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean);
-        box.className = ''; box.innerHTML = `<ul class="ia-out">${itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p class="ia-note">Gerado por IA a partir dos dados desta cotação. Não altera valores: confira antes de usar.</p>`;
-    } catch (e) { box.className = 'ia-err'; box.textContent = e.message; toast(e.message, 'err'); } finally { busy(btn, false); }
+        box.className = ''; box.innerHTML = `<ul class="ia-out">${itens.map(i => `<li>${esc(i)}</li>`).join('')}</ul><p class="ia-note">Análise gerada por IA a partir dos dados desta cotação. Não altera valores: confira antes de usar.</p>`;
+    } catch (e) { renderAutoAnalysis(q, `A IA não respondeu (${e.message}), por isso está valendo a análise automática.`); toast('A IA não respondeu. Mantive a análise automática.', 'err'); } finally { busy(btn, false); }
 }
 
 // --- EXPORTAR PROPOSTA (PDF via impressão do navegador) ---
@@ -469,14 +546,14 @@ function exportProposal() {
     const q = lastQuote; if (!q || !q.ok) return;
     const s = q.sel, d = q.display, c = q.composition, car = Quote.characteristics(q);
     const steps = b => b.steps.map(p => `<tr><td>${esc(p.label)}</td><td class="n">${p.tipo === 'add' ? '+ ' + money(p.valor) : Quote.fmtPct(p.pct)}</td></tr>`).join('') || '<tr><td colspan="2">Sem fatores adicionais</td></tr>';
-    const prazos = q.porPrazo.filter(p => p.ok).map(p => { const [m, i] = valsByMode(p.r, s.impostoMode === 'sem' ? 'sem' : 'com'); return `<tr><td>${p.dur} meses</td><td class="n">${money(m)}</td><td class="n">${money(i)}</td></tr>`; }).join('');
+    const prazos = q.porPrazo.filter(p => p.ok).map(p => { const [m, i] = valsByMode(p.r, s.impostoMode === 'sem' ? 'sem' : 'com'); return `<tr><td>${p.dur} meses</td><td class="n">${money(m)}</td><td class="n">${instCell(p.r, i)}</td></tr>`; }).join('');
     $('printRoot').innerHTML = `
         <div class="p-head"><div class="p-brand"><div class="p-logo">S</div><div><h1>Proposta comercial</h1><div class="p-sub">Sitelbra Wholesale</div></div></div><div class="p-sub">${esc(new Date().toLocaleDateString('pt-BR'))}<br>Validade: 30 dias</div></div>
-        <section><h2>Dados da cotação</h2><table><tr><td>Produto</td><td class="n">${esc(s.prod)}</td></tr><tr><td>UF</td><td class="n">${esc(s.uf)}</td></tr><tr><td>Velocidade</td><td class="n">${Quote.speedLabel(s.speed)}</td></tr><tr><td>Prazo contratual</td><td class="n">${s.dur} meses</td></tr></table></section>
-        <section><h2>Valores (${esc(d.rotulo.toLowerCase())})</h2><div class="p-big"><div>Mensalidade<b>${money(d.mensal)}</b></div><div>Instalação<b>${money(d.inst)}</b></div></div>
+        <section><h2>Dados da cotação</h2><table><tr><td>Produto</td><td class="n">${esc(s.prod)}</td></tr><tr><td>${s.cidade ? 'Cidade/UF' : 'UF'}</td><td class="n">${esc(s.cidade ? s.cidade + '/' + s.uf : s.uf)}</td></tr><tr><td>Velocidade</td><td class="n">${Quote.speedLabel(s.speed)}</td></tr><tr><td>Prazo contratual</td><td class="n">${s.dur} meses</td></tr></table></section>
+        <section><h2>Valores (${esc(d.rotulo.toLowerCase())})</h2><div class="p-big"><div>Mensalidade<b>${money(d.mensal)}</b></div><div>Instalação<b>${moneyInst(q.semInst, d.inst)}</b></div></div>
         ${q.porPrazo.length > 1 ? `<table><tr><th>Prazo</th><th class="n">Mensalidade</th><th class="n">Instalação</th></tr>${prazos}</table>` : ''}</section>
         <section><h2>Características</h2><p>${car.length ? esc(car.join(', ')) : 'Configuração padrão, sem adicionais.'}</p></section>
-        ${c.consistente ? `<section><h2>Composição do preço</h2><table><tr><th>Mensalidade</th><th class="n"></th></tr><tr><td>LPU base</td><td class="n">${money(c.mensal.base)}</td></tr>${steps(c.mensal)}<tr><td><b>Mensalidade final (sem impostos)</b></td><td class="n"><b>${money(c.mensal.final)}</b></td></tr></table><br>
+        ${c.consistente && !c.inst.semInst ? `<section><h2>Composição do preço</h2><table><tr><th>Mensalidade</th><th class="n"></th></tr><tr><td>LPU base</td><td class="n">${money(c.mensal.base)}</td></tr>${steps(c.mensal)}<tr><td><b>Mensalidade final (sem impostos)</b></td><td class="n"><b>${money(c.mensal.final)}</b></td></tr></table><br>
         <table><tr><th>Instalação</th><th class="n"></th></tr>${c.inst.rural ? '' : `<tr><td>LPU base</td><td class="n">${money(c.inst.base)}</td></tr>`}${steps(c.inst)}<tr><td><b>Instalação final (sem impostos)</b></td><td class="n"><b>${money(c.inst.final)}</b></td></tr></table></section>` : ''}
         <section><h2>Texto comercial</h2><pre>${esc($('emailTemplate').value)}</pre></section>
         <div class="p-foot">Documento gerado pelo sistema de cotação Sitelbra Wholesale. Valores sujeitos à confirmação de viabilidade técnica.</div>`;
@@ -515,7 +592,7 @@ function onCalcClick() {
 // --- INICIALIZAÇÃO ---
 document.addEventListener('DOMContentLoaded', () => {
     $('currentDate').textContent = new Date().toLocaleDateString('pt-BR');
-    renderOptions(); renderOperators(); renderVisualUF(); renderPrazoButtons(); updateProducts(); updateSpeeds(); hydrateIcons(); renderHistory();
+    renderOptions(); renderOperators(); renderVisualUF(); renderPrazoButtons(); updateProducts(); updateSpeeds(); hydrateIcons(); renderHistory(); updateAdvSummary();
 
     $('btnCalc').addEventListener('click', onCalcClick);
     syncAdv(); (mqDesk.addEventListener ? mqDesk.addEventListener('change', syncAdv) : mqDesk.addListener(syncAdv));
@@ -530,6 +607,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $('advDetails').addEventListener('input', e => { if (e.target.type === 'number') { e.target.classList.remove('bad'); $('errDist').textContent = ''; calculate(); } });
 
+    $('btnClearAdv').addEventListener('click', clearAdvanced);
+    // Cidade: a dica aparece enquanto digita; a cotação recalcula quando o nome bate com a lista ou ao sair do campo
+    $('inputCidade').addEventListener('input', () => { renderCityInfo(); if (!getCidade() || cidadeNaLista($('selUF').value, getCidade())) calculate(); });
+    $('inputCidade').addEventListener('change', () => { renderCityInfo(); calculate(); });
     $('selImpostoMode').addEventListener('change', calculate);
     document.querySelector('.tabs').addEventListener('click', e => { const t = e.target.closest('.tab'); if (t) activateTab(t.dataset.tab); });
     $('btnOpenCompare').addEventListener('click', () => { activateTab('comparar'); $('details').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); });

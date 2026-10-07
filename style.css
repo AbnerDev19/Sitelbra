@@ -645,3 +645,22 @@ body { line-height: 1.55; }
 .loc-det { font-size: 12px; color: var(--muted); }
 .loc-det summary { cursor: pointer; }
 .loc-det ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; overflow-wrap: anywhere; }
+
+/* ---------- Cidade (rede própria + regras do Norte) e botão Limpar parâmetros ---------- */
+.city-box { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line-2); display: grid; gap: 8px; }
+.city-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.city-label .hint { font-weight: 400; margin-left: 4px; }
+.city-info { display: grid; gap: 6px; }
+.city-line { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; border: 1px solid var(--line); border-left-width: 3px; border-radius: var(--r-sm); padding: 7px 10px; font-size: 13px; background: var(--tint); }
+.city-line span { text-align: right; color: var(--muted); }
+.city-line.ok { border-left-color: var(--ok); background: var(--ok-bg); } .city-line.ok b { color: var(--ok); }
+.city-line.warn { border-left-color: #c77a00; background: var(--warn-bg); } .city-line.warn b { color: var(--warn); }
+.city-line.bad { border-left-color: var(--bad); background: var(--bad-bg); } .city-line.bad b { color: var(--bad); }
+.city-line.none { border-left-color: #a3adba; }
+.city-line.aplica { box-shadow: 0 0 0 2px var(--accent); }
+.city-norte { display: grid; gap: 6px; }
+.city-sub { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.city-note { font-size: 12.5px; color: var(--muted); }
+.adv-tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+.adv-tools .btn { flex: none; }
+.adv-tools .hint { min-width: 0; } .adv-tools .btn { white-space: nowrap; }

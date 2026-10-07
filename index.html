@@ -66,6 +66,7 @@
             <details class="adv" id="advDetails" open>
                 <summary id="advSummaryBar"><span><strong>Análise avançada</strong><small id="advSummary">SLA, dupla abordagem, IPs, MTU, local e outras regras</small></span><span class="chev" data-ic="chev"></span></summary>
                 <div class="adv-body">
+                    <div class="adv-tools"><span class="hint" id="advCount">Nenhum parâmetro marcado</span><button type="button" class="btn ghost sm" id="btnClearAdv" disabled><span data-ic="trash"></span><span class="lbl">Limpar parâmetros</span></button></div>
                     <div class="section-title">Adicionais de local</div>
                     <div id="localContainer" class="opts"></div>
                     <div id="ruralOptions" class="rural" hidden>
@@ -91,7 +92,14 @@
                 <section class="col" aria-label="Rede e local">
                     <div class="step-header"><span class="step-num">1</span><span>Rede &amp; Local</span></div>
                     <div class="card field" data-field="op"><span class="card-label">Operadora</span><div id="visualOpGrid" class="chips"></div><div class="ferr" role="alert"></div></div>
-                    <div class="card field grow" data-field="uf"><span class="card-label">Estado (UF)</span><div id="visualUFGrid" class="uf-grid"></div><div class="uf-legend" id="ufLegend" aria-label="Legenda das cores dos estados"></div><div class="ferr" role="alert"></div></div>
+                    <div class="card field grow" data-field="uf"><span class="card-label">Estado (UF)</span><div id="visualUFGrid" class="uf-grid"></div><div class="uf-legend" id="ufLegend" aria-label="Legenda das cores dos estados"></div>
+                        <div class="city-box" id="cityBox" hidden>
+                            <label for="inputCidade" class="city-label">Cidade <span class="hint">confere rede própria e regras do Norte</span></label>
+                            <input id="inputCidade" class="input" type="text" list="cidadesList" autocomplete="off" spellcheck="false" placeholder="Digite a cidade">
+                            <datalist id="cidadesList"></datalist>
+                            <div id="cityInfo" class="city-info" aria-live="polite"></div>
+                        </div>
+                        <div class="ferr" role="alert"></div></div>
                 </section>
 
                 <!-- 2 -->
@@ -193,9 +201,9 @@
                         <div class="panel" id="tab-ia" role="tabpanel" hidden>
                             <div class="noq-msg">Calcule uma cotação para pedir a análise.</div>
                             <div class="need-q">
-                                <div class="panel-head"><h3>Análise comercial com IA</h3><span class="hint">Opcional. Só comenta, nunca altera valores.</span></div>
-                                <div id="iaBody" class="ia-empty">Gere observações sobre instalação, fatores de maior impacto e prazo, usando apenas os dados desta cotação.</div>
-                                <div class="actions"><button type="button" class="btn dark" id="btnAnalyze"><span class="spin" aria-hidden="true"></span><span data-ic="sparkle"></span><span class="lbl">Analisar cotação</span></button></div>
+                                <div class="panel-head"><h3>Análise da cotação</h3><span class="hint">Calculada pelo sistema. A IA é opcional e nunca altera valores.</span></div>
+                                <div id="iaBody" class="ia-empty">A análise aparece aqui assim que a cotação é calculada.</div>
+                                <div class="actions"><button type="button" class="btn dark" id="btnAnalyze"><span class="spin" aria-hidden="true"></span><span data-ic="sparkle"></span><span class="lbl">Pedir análise à IA</span></button></div>
                             </div>
                         </div>
                     </div>
@@ -273,6 +281,9 @@
 <script src="lpu_cirion.js"></script>
 <script src="lpu_oi.js"></script>
 <script src="lpu_geral.js"></script>
+<script src="lpu_acima2g.js"></script>
+<script src="cidades-data.js"></script>
+<script src="cidades-core.js"></script>
 <script src="specials.js"></script>
 <script src="quote.js"></script>
 <script src="history.js"></script>

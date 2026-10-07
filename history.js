@@ -15,7 +15,7 @@ window.Historico = (function () {
         catch (e) { return false; }
     }
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-    const sig = e => JSON.stringify([e.op, e.prod, e.uf, e.speed, e.prazos, e.opts, e.impostoMode]);
+    const sig = e => JSON.stringify([e.op, e.prod, e.uf, e.cidade || '', e.speed, e.prazos, e.opts, e.impostoMode]);
 
     // Salva a cotação. Se for idêntica à última salva, só atualiza a data (evita repetição ao recalcular).
     function add(entry) {

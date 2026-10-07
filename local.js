@@ -138,7 +138,7 @@
                 try { final = LC.mesclarComIA(analise, await AI.local(LC.buildFacts(ponto, mun, analise))); }
                 catch (e) { avisos.push('A IA não respondeu (' + e.message + '). Abaixo, a análise direta do mapa.'); }
             }
-            atual = { ponto, mun, analise, final, texto, avisos, detalhes };
+            atual = { ponto, mun, analise, final, texto, avisos, detalhes, falhou: !mapa || !mun };
             definirLocal(false);
             render();
         } catch (e) {
@@ -164,7 +164,7 @@
     const CONF = { alta: 'confiança alta', media: 'confiança média', baixa: 'confiança baixa' };
 
     function render() {
-        const { ponto, mun, analise, final, avisos, detalhes } = atual, box = $('locResult');
+        const { ponto, mun, analise, final, avisos, detalhes, falhou } = atual, box = $('locResult');
         const local = [ponto.bairro, (mun && mun.nome) || ponto.municipio, (mun && mun.uf) || ponto.uf].filter(Boolean).join(' | ') || 'Local localizado';
         const pop = mun && mun.populacao != null ? `<span class="loc-pop">${mun.populacao.toLocaleString('pt-BR')} hab. (IBGE ${esc(mun.ano || '')})</span>` : '';
         const aprox = ponto.origem === 'coord' ? '' : '<p class="note">Posição aproximada pelo endereço' + (ponto.precisao === 'endereco' ? '.' : ' (só pela rua ou bairro).') + '</p>';
@@ -174,7 +174,7 @@
             ${final.resumo ? `<p class="loc-resumo">${esc(final.resumo)}</p>` : ''}
             ${aprox}
             ${avisos.map(a => `<p class="loc-aviso">${esc(a)}</p>`).join('')}
-            ${detalhes && detalhes.length ? `<details class="loc-det"><summary>Detalhes técnicos (por que falhou)</summary><ul>${detalhes.map(d => `<li>${esc(d)}</li>`).join('')}</ul></details>` : ''}
+            ${detalhes && detalhes.length ? `<details class="loc-det"><summary>${falhou ? 'Detalhes técnicos (por que falhou)' : 'Como a consulta foi feita'}</summary><ul>${detalhes.map(d => `<li>${esc(d)}</li>`).join('')}</ul></details>` : ''}
             ${sug.length ? `<div class="loc-list">${sug.map(s => `
                 <label class="loc-item ${s.nivel}">
                     <input type="checkbox" data-id="${esc(s.id)}" ${s.nivel === 'forte' && s.id !== 'rural' ? 'checked' : ''}>

@@ -40,7 +40,9 @@
         o = o || {};
 
         const baseM = item.m.c;   // mensalidade LPU s/ impostos
-        const baseI = item.i.c;   // instalação LPU s/ impostos
+        const baseI = item.i.c;   // instalação LPU s/ impostos (0 quando a LPU não traz instalação: item.semInst)
+        const semInst = !!item.semInst;    // LPU acima de 2 Gbps: sem valor de instalação (tela mostra "Sob consulta")
+        const semFaixa = !!item.semFaixa;  // preço de tabela final: sem a faixa de volume
 
         // ---- Fatores (linha 4 da planilha) ----
         const B = o.foraUrbana ? 1.2 : 1;                 // Fora da zona urbana
@@ -62,17 +64,21 @@
         const qtdIp = Math.max(0, parseFloat(o.qtdIp) || 0);
         const P = R.ipMensal(qtdIp);                      // IPs fixos (mensal)
         const Q = (R.mtu && o.mtu) ? 100 : 0;             // BDL MTU 1500
+        // Cidade do Norte (planilha "Racional cidades LPU - Norte"): multiplica a LPU, mensal e instalação.
+        // Quem decide o valor é Cidades.regraNorte (cidades-core.js), via quote.js; aqui só se aplica.
+        const Z = parseFloat(o.norteMult) > 1 ? parseFloat(o.norteMult) : 1;
 
         // ---- MENSALIDADE (B11) ----
-        const S = baseM * B * C * O * D * E * I * J * N * F + G + H + K + L;
+        const S = baseM * B * C * O * D * E * I * J * N * F * Z + G + H + K + L;
         let faixa = 1;
-        if (S >= 15000) faixa = 0.65;
+        if (semFaixa) faixa = 1;
+        else if (S >= 15000) faixa = 0.65;
         else if (S >= 10000) faixa = 0.85;
         const mensal = S * faixa + P + Q * 2;
 
         // ---- INSTALAÇÃO ZONA URBANA (D11) ----
         const instUrbana =
-            baseI * B * D * E * F + G + 2 * K + 10 * L +
+            baseI * B * D * E * F * Z + G + 2 * K + 10 * L +
             (C === 1 ? 0 : 3500) +
             (O === 1 ? 0 : 7500) +
             R.ipInst(qtdIp) + Q * 5;
@@ -84,11 +90,11 @@
                 (O === 1 ? 0 : 7500) +
                 K * 2) / (reduzido ? 2 : 1);
 
-        const instalacao = o.rural ? instRural : instUrbana;
+        const instalacao = semInst ? 0 : (o.rural ? instRural : instUrbana);
 
         // ---- IMPOSTOS: razão exata da própria linha da LPU (c/ imposto ÷ s/ imposto) ----
         const taxM = item.m.f / item.m.c;
-        const taxI = item.i.f / item.i.c;
+        const taxI = item.i.c ? item.i.f / item.i.c : taxM;   // sem instalação na LPU: a razão não é usada
 
         return {
             mensalClean: mensal,
@@ -96,10 +102,11 @@
             mensalFull: mensal * taxM,
             instalacaoFull: instalacao * taxI,
             taxM, taxI,
+            semInst,
             faixa,
             mensalAntesFaixa: S,
             instUrbana, instRural,
-            fatores: { B, C, D, E, F, G, H, I, J, K, L, N, O, P, Q }
+            fatores: { B, C, D, E, F, G, H, I, J, K, L, N, O, P, Q, Z }
         };
     }
 

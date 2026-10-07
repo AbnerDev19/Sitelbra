@@ -1,7 +1,8 @@
 // lpu_config.js - ATUALIZADO
 window.LPU_DB = [];
 
-window.VELOCIDADES_DISPONIVEIS = [4, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000];
+// 2000 a 20000 (2 a 20 Gbps): LPU acima de 2 Gbps, ver lpu_acima2g.js
+window.VELOCIDADES_DISPONIVEIS = [4, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 10000, 20000];
 
 window.addEntry = function(operadora, produto, uf, prazo, velocidade, mClean, mFull, iClean, iFull) {
     window.LPU_DB.push({
@@ -72,4 +73,20 @@ window.UF_GROUPS = {
     "RO": 3,
     "RJ": 4,
     "RR": 4
+};
+
+// LPU acima de 2 Gbps (lpu_acima2g.js chama esta função depois de carregar as outras tabelas).
+// A planilha é única: vale igual para TODAS as operadoras, só IP Dedicado e L2-MPLS, só 24 meses.
+// Ela não traz instalação (semInst) e já é preço de tabela final: a faixa de volume do pricing.js não se aplica (semFaixa).
+window.loadLpuAcima2G = function() {
+    const t = window.LPU_ACIMA_2G;
+    if (!t) return;
+    const ops = [...new Set(window.LPU_DB.map(i => i.o))];
+    let n = 0;
+    ops.forEach(op => Object.keys(t).forEach(prod => Object.keys(t[prod]).forEach(uf => Object.keys(t[prod][uf]).forEach(vel => {
+        const [mS, mC] = t[prod][uf][vel];
+        window.LPU_DB.push({ o: op, p: prod, u: uf, d: 24, s: parseInt(vel), m: { c: mS, f: mC }, i: { c: 0, f: 0 }, semInst: true, semFaixa: true });
+        n++;
+    }))));
+    console.log('LPU acima de 2 Gbps carregada: ' + n + ' ofertas (' + ops.length + ' operadoras).');
 };

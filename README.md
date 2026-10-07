@@ -34,6 +34,20 @@ Sem `GEMINI_API_KEY` tudo funciona, exceto "Melhorar com IA" e "Análise comerci
 - Em Vercel/Netlify: `api/ai.js` funciona como função serverless; defina `GEMINI_API_KEY` nas variáveis de ambiente do projeto. Em hospedagem estática pura (GitHub Pages) a IA não funciona, pois não há onde guardar a chave.
 - **A chave antiga estava no histórico do repositório. Revogue-a no Google AI Studio.**
 
+## Cidade, rede própria e cidades do Norte
+Ao escolher a UF aparece a caixa **Cidade** (com autocompletar).
+- **Rede própria**: diz se a cidade está na lista de cidades atendidas pela Sitelbra (só informa, não muda preço).
+- **Norte (AM, RO, AP, AC, RR, PA)**: a cidade é LPU normal, tem multiplicador (que depende da velocidade: até 20 Mb ou acima de 20 Mb) ou é inviável (inviável, apenas satélite, somente Starlink). O multiplicador vale para mensalidade e instalação. Cidade fora da lista usa a linha "Demais" da planilha (no Amazonas, "somente Starlink" = inviável) e o status fica em Atenção.
+- Dados em `cidades-data.js` (gerado), lógica em `cidades-core.js`, testes em `tests/cidades.test.js`.
+- Para atualizar as planilhas: `python3 tools/gerar-dados.py <rede_propria.xlsx> <norte.xlsx> <acima_2gbps.xlsx>` (precisa de openpyxl).
+
+## Acima de 2 Gbps
+`lpu_acima2g.js` (gerado): 2, 3, 4, 5, 6, 10 e 20 Gbps para **IP Dedicado** e **L2-MPLS**, iguais para todas as operadoras, **só 24 meses** (marque 24 meses como principal). A planilha não traz instalação: aparece "Sob consulta" e o status fica em Atenção. A faixa de volume (x0,85/x0,65) não se aplica a esses valores, que já são preço de tabela.
+
+## Limpar parâmetros e análise
+- Botão **Limpar parâmetros** no topo de "Análise avançada": desmarca tudo (local, projetos especiais, condições, IPs, distância).
+- Aba **Análise IA**: agora mostra sempre uma análise automática calculada pelo sistema; o botão "Pedir análise à IA" é opcional e, se a IA falhar, a automática continua valendo.
+
 ## Status de viabilidade
 O projeto não tem uma regra comercial de viabilidade; o status usa só fatos já existentes:
 - **Inviável**: a LPU não tem preço para a combinação (operadora, produto, UF, prazo).
