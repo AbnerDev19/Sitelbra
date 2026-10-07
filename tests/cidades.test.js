@@ -75,5 +75,16 @@ ok('só 24 meses', !Q.buildQuote({ op: 'Claro', prod: 'IP DEDICADO', uf: 'DF', s
 ok('rótulo 2 Gbps', Q.speedLabel(2000) === '2 Gbps' && Q.speedLabel(20000) === '20 Gbps');
 ok('análise automática não vazia', Q.buildLocalAnalysis(tefe).length >= 3);
 
+// ---- linha para o Excel
+{
+    const linha = Q.buildExcelRow({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 36, prazos: [36], opts: {}, impostoMode: 'sem' }, C).split('\t');
+    const q12 = Q.buildQuote({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 12, prazos: [12], opts: {}, impostoMode: 'sem' }, C);
+    ok('Excel: 1 + 5 prazos x 2 = 11 células', linha.length === 11 && linha[0] === '60 dias', linha.length);
+    ok('Excel: mensal 12 meses confere', linha[1] === Q.fmtBRL(q12.r.mensalClean) && /^R\$ [\d.]+,\d\d$/.test(linha[1]), linha[1]);
+    const com = Q.buildExcelRow({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 36, prazos: [36], opts: {}, impostoMode: 'com' }, C).split('\t');
+    ok('Excel: com impostos usa valor final', com[1] === Q.fmtBRL(q12.r.mensalFull));
+    const g2 = Q.buildExcelRow({ op: 'Claro', prod: 'IP DEDICADO', uf: 'DF', speed: 2000, dur: 24, prazos: [24], opts: {}, impostoMode: 'sem' }, C).split('\t');
+    ok('Excel: acima de 2G só 24 meses, resto "-"', g2[1] === '-' && g2[3] !== '-' && g2[4] === 'Sob consulta', g2.join('|'));
+}
 console.log(`${n} verificações,`, fails ? 'FALHAS: ' + fails : 'TODAS PASSARAM');
 process.exit(fails ? 1 : 0);

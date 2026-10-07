@@ -8,7 +8,7 @@
 (function () {
     const $ = id => document.getElementById(id);
     const LC = window.LocalCore;
-    const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+    const OVERPASS = LC.OVERPASS_SERVERS;
     const NOM = 'https://nominatim.openstreetmap.org/';
     const IBGE = 'https://servicodados.ibge.gov.br/api/';
     let atual = null;      // última análise (para o botão Aplicar)
@@ -74,17 +74,17 @@
     // ---------- 3) NAVEGADOR (reserva: usa o IP do próprio usuário, que costuma ter cota livre) ----------
     async function mapaNoNavegador(p) {
         const erros = [];
-        for (const url of OVERPASS) {
-            for (const lite of [false, true]) {
-                try {
-                    const j = await getJson(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(LC.buildOverpassQuery(p.lat, p.lon, lite)) }, 25000);
-                    return { dados: LC.parseOverpass(j), erros, lite };
-                } catch (e) {
-                    erros.push(`navegador > ${host(url)}${lite ? ' (reduzida)' : ''}: ${porque(e)}`);
-                    if (e.status === 400 && !lite) continue;
-                    break;
-                }
-            }
+        // completa em todos os servidores ao mesmo tempo; se nenhum responder, a reduzida
+        for (const lite of [false, true]) {
+            try {
+                const dados = await Promise.any(OVERPASS.map(async url => {
+                    try {
+                        const j = await getJson(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data=' + encodeURIComponent(LC.buildOverpassQuery(p.lat, p.lon, lite)) }, lite ? 12000 : 20000);
+                        return LC.parseOverpass(j);
+                    } catch (e) { erros.push(`navegador > ${host(url)}${lite ? ' (reduzida)' : ''}: ${porque(e)}`); throw e; }
+                }));
+                return { dados, erros, lite };
+            } catch (e) { /* nenhum respondeu */ }
         }
         return { dados: null, erros };
     }
@@ -185,11 +185,15 @@
                     </span>
                 </label>`).join('')}</div>
                 <button type="button" class="btn secondary" id="btnAplicarLocal"><span class="lbl">Aplicar selecionados na cotação</span></button>`
-                : `<p class="loc-none">${analise.contexto.mapa_consultado ? 'O mapa não mostrou indício de nenhum adicional de local neste ponto.' : 'Sem indícios para mostrar.'}</p>`}
+                : (analise.contexto.mapa_consultado
+                    ? '<p class="loc-none">O mapa não mostrou indício de nenhum adicional de local neste ponto.</p>'
+                    : '<p class="loc-none">O mapa não respondeu, então não dá para sugerir adicionais de local agora. Tente de novo, ou marque os adicionais à mão em "Análise avançada".</p><button type="button" class="btn secondary" id="btnTentarLocal"><span class="lbl">Tentar de novo</span></button>')}
             ${final.conferir.length ? `<ul class="loc-conferir">${final.conferir.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}
             <p class="note">Fontes: OpenStreetMap e IBGE. O mapa pode estar incompleto: "sem indício" não significa que o adicional não se aplica. Confira antes de ofertar.${final.iaOk ? ' Parecer redigido por IA a partir desses dados.' : ''}</p>`;
         const b = $('btnAplicarLocal');
         if (b) b.addEventListener('click', aplicar);
+        const t = $('btnTentarLocal');
+        if (t) t.addEventListener('click', analisarLocal);
     }
 
     function aplicar() {

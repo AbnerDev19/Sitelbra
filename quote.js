@@ -355,6 +355,25 @@
         };
     }
 
+    // ---------- LINHA PARA O EXCEL ----------
+    // Uma linha só, separada por TAB (cada valor cai numa célula ao colar no Excel):
+    //   60 dias | mensal 12m | instalação 12m | mensal 24m | instalação 24m | ... | mensal 60m | instalação 60m
+    // Sempre os 5 prazos (12 a 60), com as mesmas opções da cotação. Prazo sem valor na LPU vira "-".
+    // Valores com ou sem impostos conforme a visualização escolhida (sem = Clean; com/detalhado = com impostos).
+    const PRAZOS_EXCEL = [12, 24, 36, 48, 60];
+    const PRAZO_INSTALACAO = '60 dias';
+    function buildExcelRow(sel, ctx) {
+        const q = buildQuote(Object.assign({}, sel, { prazos: PRAZOS_EXCEL.slice() }), ctx);
+        if (!q.ok) return '';
+        const clean = sel.impostoMode === 'sem';
+        const cels = [PRAZO_INSTALACAO];
+        q.porPrazo.forEach(p => {
+            if (!p.ok) { cels.push('-', '-'); return; }
+            cels.push(fmtBRL(clean ? p.r.mensalClean : p.r.mensalFull), fmtInst(p.r.semInst, clean ? p.r.instalacaoClean : p.r.instalacaoFull));
+        });
+        return cels.join('\t');
+    }
+
     // ---------- ANÁLISE AUTOMÁTICA (sem IA) ----------
     // Mesmo tipo de observação da análise por IA, mas calculada aqui, só com os números da cotação.
     // Serve quando a IA não está configurada ou não responde: a aba "Análise IA" nunca fica vazia.
@@ -393,7 +412,7 @@
         return out;
     }
 
-    const api = { fmtBRL, fmtInst, SOB_CONSULTA, buildLocalAnalysis, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
+    const api = { fmtBRL, fmtInst, buildExcelRow, PRAZOS_EXCEL, SOB_CONSULTA, buildLocalAnalysis, speedLabel, fmtPct, fmtNum, findItem, buildQuote, compareOperators, buildSummaryText, buildCommercialText,
         buildAiPayload, characteristics, optsLabels, buildEmailSubject, TABELAS_FONTE, OPERADORAS_SEM_PLANILHA };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.Quote = api;

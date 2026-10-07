@@ -8,18 +8,18 @@ const OVER = { elements: [{ type: 'node', id: 1, lat: -15.8, lon: -47.9, tags: {
 const IBGE = u => /estados/.test(u) ? J([{ id: 1, nome: 'Xique-Xique' }]) : J([{ resultados: [{ series: [{ serie: { 2025: '9000' } }] }] }]);
 (async () => {
     let calls = [];
-    global.fetch = async (u, o) => { calls.push(String(u)); if (/overpass-api\.de/.test(u)) return J({}, 429); if (/private\.coffee/.test(u)) return J(OVER); return IBGE(String(u)); };
-    let r = await call({ lat: -15.8, lon: -47.9, municipio: 'Xique Xique', uf: 'ba' });
+    global.fetch = async (u, o) => { calls.push(String(u)); if (/overpass-api\.de/.test(u)) return J({}, 429); if (/private\.coffee/.test(u)) return J(OVER); if (/kumi|mail\.ru/.test(u)) return J({}, 504); return IBGE(String(u)); };
+    let r = await call({ lat: -15.8 - Math.random(), lon: -47.9, municipio: 'Xique Xique', uf: 'ba' });
     ok('espelho responde após 429', r.mapa && r.mapa.elementos.length === 1, JSON.stringify(r).slice(0, 200));
-    ok('erro do 1º servidor registrado', r.mapaErros.length === 1 && /overpass-api\.de.*429/.test(r.mapaErros[0]), r.mapaErros);
+    ok('erro do 1º servidor registrado', r.mapaErros.some(e => /overpass-api\.de.*429/.test(e)), r.mapaErros);
     ok('IBGE ok', r.municipio && r.municipio.populacao === 9000 && r.municipio.uf === 'BA');
 
-    calls = []; global.fetch = async (u, o) => { calls.push(String(u)); if (/overpass/.test(u)) return /is_in/.test(decodeURIComponent(o.body)) ? J({}, 400) : J(OVER); return IBGE(String(u)); };
-    r = await call({ lat: -15.8, lon: -47.9, municipio: 'Xique Xique', uf: 'BA' });
+    calls = []; global.fetch = async (u, o) => { calls.push(String(u)); if (/overpass|kumi|mail\.ru/.test(u)) return /is_in/.test(decodeURIComponent(o.body)) ? J({}, 400) : J(OVER); return IBGE(String(u)); };
+    r = await call({ lat: -15.8 - Math.random(), lon: -47.9, municipio: 'Xique Xique', uf: 'BA' });
     ok('400 -> consulta reduzida no mesmo servidor', r.mapaReduzido === true && r.mapa && calls.filter(c => /overpass-api\.de/.test(c)).length === 2);
 
-    global.fetch = async u => /overpass/.test(u) ? J({}, 504) : J({}, 500);
-    r = await call({ lat: -15.8, lon: -47.9, municipio: 'X', uf: 'BA' });
+    global.fetch = async u => /overpass|kumi|mail\.ru/.test(u) ? J({}, 504) : J({}, 500);
+    r = await call({ lat: -15.8 - Math.random(), lon: -47.9, municipio: 'X', uf: 'BA' });
     ok('tudo falha: mapa null com motivos', r.mapa === null && r.mapaErros.length >= 2 && /IBGE/.test(r.ibgeErro), JSON.stringify(r).slice(0, 300));
 
     global.fetch = async () => { throw new Error('não deveria chamar'); };

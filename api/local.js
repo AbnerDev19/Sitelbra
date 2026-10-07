@@ -5,7 +5,7 @@
 const LC = require('../local-core.js');
 const S = require('./_shared.js');
 
-const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+const OVERPASS = LC.OVERPASS_SERVERS;
 const IBGE = 'https://servicodados.ibge.gov.br/api/';
 const UA = 'Sitelbra-Cotacao/2.0 (ferramenta interna de cotacao)';
 const BR = { latMin: -34, latMax: 6, lonMin: -74.5, lonMax: -33 };
@@ -24,23 +24,29 @@ const host = u => u.replace(/^https?:\/\//, '').split('/')[0];
 const porque = e => e.name === 'AbortError' ? 'tempo esgotado' : (e.message || 'falhou');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+async function umServidor(url, lite, ms, lat, lon, erros) {
+    try {
+        const j = await getJson(url, {
+            method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+            body: 'data=' + encodeURIComponent(LC.buildOverpassQuery(lat, lon, lite))
+        }, ms);
+        return LC.parseOverpass(j);
+    } catch (e) { erros.push(`${host(url)}${lite ? ' (reduzida)' : ''}: ${porque(e)}`); throw e; }
+}
+// Resultado de consultas recentes (10 min): evita repetir a mesma consulta e aliviar os servidores públicos.
+const cacheMapa = new Map();
 async function mapa(lat, lon) {
+    const chave = lat.toFixed(3) + ',' + lon.toFixed(3), hit = cacheMapa.get(chave);
+    if (hit && Date.now() - hit.t < 600000) return { dados: hit.dados, erros: [], lite: hit.lite };
     const erros = [];
-    for (const url of OVERPASS) {
-        for (const lite of [false, true]) {
-            try {
-                const j = await getJson(url, {
-                    method: 'POST', headers: { 'User-Agent': UA, 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-                    body: 'data=' + encodeURIComponent(LC.buildOverpassQuery(lat, lon, lite))
-                }, 14000);
-                return { dados: LC.parseOverpass(j), erros, lite };
-            } catch (e) {
-                erros.push(`${host(url)}${lite ? ' (reduzida)' : ''}: ${porque(e)}`);
-                if (e.status === 400 && !lite) continue;      // consulta recusada: tenta a versão reduzida no mesmo servidor
-                if (e.status === 429) await sleep(1200);      // sobrecarga: espera um pouco e passa ao próximo
-                break;
-            }
-        }
+    // 1) consulta completa em TODOS os servidores ao mesmo tempo; 2) se nenhum responder, a reduzida, também em paralelo
+    for (const lite of [false, true]) {
+        try {
+            const dados = await Promise.any(OVERPASS.map(u => umServidor(u, lite, lite ? 9000 : 14000, lat, lon, erros)));
+            cacheMapa.set(chave, { t: Date.now(), dados, lite });
+            if (cacheMapa.size > 200) cacheMapa.delete(cacheMapa.keys().next().value);
+            return { dados, erros, lite };
+        } catch (e) { /* nenhum respondeu: segue */ }
     }
     return { dados: null, erros };
 }

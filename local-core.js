@@ -24,6 +24,15 @@
         maxElementos: 120
     };
 
+    // Servidores públicos do Overpass (mapa). Consultados ao mesmo tempo: vale o primeiro que responder.
+    // Usado por local.js (navegador) e api/local.js (servidor). Para usar um servidor próprio, ponha-o primeiro.
+    const OVERPASS_SERVERS = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.private.coffee/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+    ];
+
     // Todos os ids são as MESMAS chaves de opts usadas em script.js/pricing.js.
     const ADICIONAIS = {
         shopping:   { nome: 'Shopping Center' },
@@ -302,7 +311,7 @@ out count;`;
         return p;
     }
 
-    const api = { AJ, ADICIONAIS, IDS, parseCoords, parseNominatim, buildOverpassQuery, parseOverpass, acharMunicipio, parseIbgePopulacao,
+    const api = { AJ, OVERPASS_SERVERS, ADICIONAIS, IDS, parseCoords, parseNominatim, buildOverpassQuery, parseOverpass, acharMunicipio, parseIbgePopulacao,
         analisar, buildFacts, mesclarComIA, patchOpts, distanceM, fmtDist };
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     else root.LocalCore = api;
