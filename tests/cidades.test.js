@@ -78,6 +78,13 @@ ok('análise automática não vazia', Q.buildLocalAnalysis(tefe).length >= 3);
 // ---- linha para o Excel
 {
     const sel = (o) => ({ op: 'Claro', prod: 'L2-MPLS', uf: 'DF', speed: 100, dur: 36, prazos: [36], opts: {}, impostoMode: 'sem', ...o });
+    for (const impostoMode of ['sem', 'com', 'ambos']) {
+        const cirion = sel({ op: 'Cirion', dur: 24, prazos: [12, 24, 36], impostoMode });
+        const result = Q.buildExcelData(cirion, C), quote = Q.buildQuote(cirion, C);
+        const r = quote.r, clean = impostoMode === 'sem';
+        ok('Cirion Excel: duas células do prazo principal ' + impostoMode,
+            result.linha === [Q.fmtBRL(clean ? r.mensalClean : r.mensalFull), Q.fmtInst(r.semInst, clean ? r.instalacaoClean : r.instalacaoFull)].join('\t') && result.estimados.length === 0);
+    }
     const linha = Q.buildExcelRow(sel(), C).split('\t');
     const q = d => Q.buildQuote(sel({ dur: d, prazos: [d] }), C);
     ok('Excel: 1 + 5 prazos x 2 = 11 células, nenhuma vazia', linha.length === 11 && linha[0] === '60 dias' && linha.every(c => c && c !== '-'), linha.join('|'));
