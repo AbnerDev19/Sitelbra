@@ -99,7 +99,7 @@ function renderOperators() {
         c.appendChild(chip(op, { pressed: $('selOperadora').value === op, onclick: () => selectOperator(op) })));
 }
 function selectOperator(op) {
-    $('selOperadora').value = op; $('selProduto').value = ''; $('selVelocidade').value = '';
+    $('selOperadora').value = op;
     clearErr('op'); renderOperators(); updateProducts(); updateSpeeds(); calculate();
 }
 
@@ -110,7 +110,7 @@ function updateProducts() {
     all.forEach(p => c.appendChild(chip(p, { pressed: $('selProduto').value === p, disabled: !avail.has(p), onclick: () => selectProduct(p) })));
 }
 function selectProduct(p) {
-    $('selProduto').value = p; $('selVelocidade').value = '';
+    $('selProduto').value = p;
     clearErr('prod'); updateProducts(); updateSpeeds(); calculate();
 }
 
@@ -226,6 +226,9 @@ function renderPrazoButtons() {
 
 function updateSpeeds() {
     renderVisualUF(); renderCityBox();
+    $('btnCopyExcel').title = $('selOperadora').value === 'Cirion'
+        ? 'Mensalidade e instalação do prazo principal, em duas células lado a lado'
+        : 'Uma linha com os prazos de 12 a 60 meses, pronta para colar no Excel';
     const op = $('selOperadora').value, prod = $('selProduto').value, uf = $('selUF').value, dur = parseInt($('selPrazo').value) || 36;
     const c = $('visualSpeedGrid'), hidden = $('selVelocidade'); c.innerHTML = '';
     const has = !!(op && prod && uf);
@@ -242,7 +245,10 @@ function updateSpeeds() {
         h.textContent = `${Quote.speedLabel(outras[0])} a ${Quote.speedLabel(outras[outras.length - 1])} só existem na LPU para ${prazosOutros.join('/')} meses. Marque esse prazo como principal para ver.`;
         c.appendChild(h);
     }
-    if (hidden.value && !avail.has(parseInt(hidden.value))) hidden.value = '';
+    // Preserva a velocidade ao trocar a seleção; a cotação informa se não houver preço.
+    if (hidden.value && !avail.has(parseInt(hidden.value))) {
+        c.appendChild(chip(Quote.speedLabel(parseInt(hidden.value)) + ' — sem preço nesta combinação', { pressed: true, disabled: true }));
+    }
 }
 
 // Opções avançadas
