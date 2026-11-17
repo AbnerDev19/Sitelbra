@@ -385,6 +385,12 @@
         const q = buildQuote(Object.assign({}, sel, { prazos: PRAZOS_EXCEL.slice() }), ctx);
         if (!q.ok) return { linha: '', estimados: [] };
         const clean = sel.impostoMode === 'sem', round = v => Math.round(v * 100) / 100;
+        if (sel.op === 'Cirion') {
+            return { linha: [
+                fmtBRL(round(clean ? q.r.mensalClean : q.r.mensalFull)),
+                fmtInst(q.r.semInst, round(clean ? q.r.instalacaoClean : q.r.instalacaoFull))
+            ].join('\t'), estimados: [] };
+        }
         const known = q.porPrazo.filter(p => p.ok).map(p => ({ d: p.dur, m: clean ? p.r.mensalClean : p.r.mensalFull, i: clean ? p.r.instalacaoClean : p.r.instalacaoFull, semInst: p.r.semInst }));
         const semInst = known.every(k => k.semInst), cels = [PRAZO_INSTALACAO], estimados = [];
         PRAZOS_EXCEL.forEach(d => {
